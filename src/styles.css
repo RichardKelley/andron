@@ -1,0 +1,746 @@
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    --vertical-spacing: 7.5px;  /* Match WordBox.verticalSpacing */
+}
+
+#container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#sidebar {
+    width: 250px;
+    min-width: 100px;
+    background-color: #2f3136;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid #202225;
+    color: #ffffff;
+    padding: 5px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+#separator {
+    width: 6px;
+    background-color: #202225;
+    cursor: col-resize;
+    transition: background-color 0.2s;
+}
+
+#separator:hover {
+    background-color: #5865f2;
+}
+
+#main-content {
+    flex: 1;
+    background-color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+    padding: 0 20px var(--page-gap);
+    position: relative;
+}
+
+.canvas-container {
+    position: relative;
+    padding: 20px;
+    display: block;
+    width: fit-content;
+    margin-top: var(--page-gap);
+}
+
+#mainCanvas {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background-color: white;
+    display: block;
+    position: relative;
+    z-index: 0;
+}
+
+/* Add styles for margin lines container */
+.margin-lines-container {
+    position: absolute;
+    top: 20px;  /* Match canvas container padding */
+    left: 20px;  /* Match canvas container padding */
+    width: calc(100% - 40px);  /* Account for padding on both sides */
+    height: calc(100% - 40px);  /* Account for padding on both sides */
+    pointer-events: none;
+    z-index: 1;
+}
+
+.margin-lines-container > div {
+    pointer-events: auto;
+}
+
+#right-sidebar {
+    width: 333px;
+    background-color: #f5f5f5;
+    border-left: 1px solid #ddd;
+    padding: 0;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-bar {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    background-color: #fff;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 12px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #666;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+/* Add styles for native tooltips */
+.tab-button:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.tab-button svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+.tab-button:hover {
+    background-color: #f8f8f8;
+    color: #333;
+}
+
+.tab-button.active {
+    border-bottom-color: #5865f2;
+    color: #5865f2;
+}
+
+.tab-button.active svg {
+    stroke: #5865f2;
+}
+
+.tab-content {
+    flex: 1;
+    overflow-y: auto;
+    display: none;
+    padding: 20px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.sidebar-button {
+    width: calc(100% - 4px);
+    padding: 15px;
+    margin: 8px 2px;
+    background-color: #4a4d52;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.sidebar-button:hover {
+    background-color: #5865f2;
+}
+
+.sidebar-button:active {
+    background-color: #4752c4;
+}
+
+.sidebar-title {
+    margin: 15px 0;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    width: 100%;
+    display: block;
+}
+
+#sidebar .sidebar-title {
+    color: #ffffff;
+}
+
+#right-sidebar .sidebar-title {
+    color: #333333;
+}
+
+.sidebar-divider {
+    margin: 15px 0;
+    border: none;
+    border-top: 1px solid #40444b;
+}
+
+#page-thumbnails {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px;
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
+    width: 80%;  /* Make container 80% of sidebar width */
+    margin: 0 auto;  /* Center the thumbnails container */
+}
+
+.page-thumbnail {
+    width: 100%;  /* Will now be relative to the 80% container width */
+    aspect-ratio: 0.773; /* Maintains 8.5x11 ratio */
+    background-color: white;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+.page-thumbnail:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.page-thumbnail.active {
+    border: 2px solid #5865f2;
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.3);
+}
+
+.page-thumbnail canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.page-number {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.wordbox {
+    position: absolute;
+    cursor: pointer;
+    user-select: none;
+}
+
+.wordbox .wordbox-rect {
+    position: relative;
+    border: 2px solid #999999;  /* Default gray border */
+    background-color: white;
+    box-sizing: border-box;
+    padding: 0 4px;
+    cursor: pointer;
+    z-index: 1;
+}
+
+/* Headline styles */
+.wordbox.headline {
+    cursor: move;
+}
+
+.wordbox.headline .wordbox-rect {
+    border-color: #999999;
+}
+
+.wordbox.headline.selected .wordbox-rect {
+    border-color: #007AFF;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.3);
+}
+
+/* Line styles */
+.wordbox-line-bottom,
+.wordbox-line-top {
+    position: absolute;
+    width: 2px;
+    height: var(--vertical-spacing);
+    background-color: #999999;
+    left: 2px;  /* Align with left border */
+}
+
+.wordbox-line-bottom {
+    top: 100%;
+}
+
+.wordbox-line-top {
+    bottom: 100%;
+}
+
+/* Selection styles */
+.wordbox.selected .wordbox-rect {
+    border-color: #007AFF;
+}
+
+.wordbox.selected .wordbox-line-bottom,
+.wordbox.selected .wordbox-line-top,
+.wordbox.selected .wordbox-circle-bottom,
+.wordbox.selected .wordbox-circle-top {
+    border-color: #007AFF;
+    background-color: #007AFF;
+}
+
+/* Individual selection styles */
+.wordbox.individually-selected .wordbox-rect {
+    border-color: #007AFF;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.3);
+}
+
+/* Cursor styles for selected boxes */
+.wordbox.selected {
+    cursor: move;
+}
+
+/* Line visibility styles */
+.wordbox.lines-hidden .wordbox-line-bottom,
+.wordbox.lines-hidden .wordbox-line-top,
+.wordbox.lines-hidden .wordbox-circle-bottom,
+.wordbox.lines-hidden .wordbox-circle-top {
+    display: none;
+}
+
+.wordbox.lines-hidden .wordbox-rect {
+    border-color: transparent;
+}
+
+/* Circle styles */
+.wordbox-circle-bottom,
+.wordbox-circle-top {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid #999999;
+    background-color: white;
+    left: 3px;  /* Center on the line (2px line position + 1px to center) */
+    transform: translateX(-50%);
+    cursor: pointer;
+    display: block;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.wordbox-circle-bottom {
+    top: calc(100% + var(--vertical-spacing));
+}
+
+.wordbox-circle-top {
+    bottom: calc(100% + var(--vertical-spacing));
+}
+
+/* Circle highlight styles */
+.wordbox-circle-bottom.highlighted,
+.wordbox-circle-top.highlighted {
+    border-color: #007AFF;
+    background-color: #007AFF;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.3);
+}
+
+/* Hide circles when there's a connected child box */
+.wordbox.has-child-bottom .wordbox-circle-bottom,
+.wordbox.has-child-top .wordbox-circle-top {
+    display: none;
+}
+
+.canvas-container {
+    position: relative;
+    margin-top: var(--page-gap, 20px);
+}
+
+.margin-lines-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.page-thumbnail {
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.page-thumbnail.active {
+    outline: 2px solid #007AFF;
+}
+
+.page-number {
+    text-align: center;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+#separator {
+    cursor: col-resize;
+    background-color: #eee;
+    width: 4px;
+}
+
+.param-group {
+    margin: 20px 0;
+    padding: 0 15px;
+}
+
+.param-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.param-group input[type="number"],
+.param-group input[type="text"],
+.param-group select.param-input,
+.param-group textarea.param-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+    background-color: white;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.param-group input[type="number"]:focus,
+.param-group input[type="text"]:focus,
+.param-group select.param-input:focus,
+.param-group textarea.param-input:focus {
+    outline: none;
+    border-color: #5865f2;
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.2);
+}
+
+.param-group textarea.param-input {
+    resize: none;
+    overflow: hidden;
+    min-height: 36px;
+}
+
+/* Remove spinner buttons from number inputs */
+.param-group input[type="number"]::-webkit-inner-spin-button,
+.param-group input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.param-group input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+.input-with-unit {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-unit input[type="number"] {
+    padding-right: 60px;
+}
+
+.unit {
+    position: absolute;
+    right: 12px;
+    color: #666;
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.reset-button {
+    margin: 10px 15px;
+    padding: 8px 16px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #666;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: calc(100% - 30px);
+}
+
+.reset-button:hover {
+    background-color: #e8e8e8;
+    color: #333;
+    border-color: #ccc;
+}
+
+.reset-button:active {
+    background-color: #ddd;
+    transform: translateY(1px);
+}
+
+.margin-inputs {
+    margin-top: 30px;
+    padding: 0 15px;
+}
+
+.margin-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+    width: 100%;
+    display: block;
+}
+
+.margin-group {
+    padding: 0 12px;
+}
+
+.margin-input {
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+}
+
+.margin-input label {
+    width: 80px;
+    font-size: 14px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 12px;
+}
+
+.margin-input label span {
+    flex: 1;
+    text-align: right;
+}
+
+.margin-input input[type="checkbox"] {
+    margin: 0;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.input-with-unit {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.input-with-unit input {
+    width: 80px;
+    height: 28px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+    background-color: white;
+}
+
+.input-with-unit input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.input-with-unit .unit {
+    margin-left: 6px;
+    font-size: 14px;
+    color: #666;
+    user-select: none;
+}
+
+/* Remove spinner buttons from number inputs */
+.input-with-unit input[type="number"]::-webkit-inner-spin-button,
+.input-with-unit input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.input-with-unit input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* Add styles for hidden lines state */
+.wordbox.lines-hidden .wordbox-line-bottom,
+.wordbox.lines-hidden .wordbox-line-top,
+.wordbox.lines-hidden .wordbox-circle-bottom,
+.wordbox.lines-hidden .wordbox-circle-top {
+    display: none;
+}
+
+.wordbox.lines-hidden .wordbox-rect {
+    border-color: transparent;
+}
+
+/* Remove the canvas container style since we're handling line visibility in TextLine class */
+
+.spacing-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 12px;
+}
+
+.spacing-input {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.spacing-input label {
+    font-size: 14px;
+    color: #333;
+    margin-right: 10px;
+}
+
+.spacing-input .input-with-unit {
+    flex: 1;
+    max-width: 120px;
+}
+
+/* Marginalia styles */
+.marginalia {
+    position: absolute;
+    background-color: white;
+    border: 2px solid #999999;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s, border-color 0.2s;
+    cursor: move;
+    box-sizing: border-box;
+}
+
+.marginalia:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.marginalia.selected {
+    border: 2px solid #007AFF;
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.3);
+}
+
+.marginalia textarea {
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    border: none;
+    resize: none;
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    background: transparent;
+}
+
+.marginalia textarea:focus {
+    outline: none;
+}
+
+.marginalia-resizer {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 10px;
+    height: 10px;
+    cursor: se-resize;
+    background: transparent;
+}
+
+.wordbox.chapter {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.wordbox.chapter .wordbox-rect {
+    padding: 2px 6px;
+    border: 2px solid #999999;  /* Match the regular wordbox border */
+}
+
+.wordbox.chapter.lines-hidden .wordbox-rect {
+    border-color: transparent;
+}
+
+.wordbox.section {
+    font-size: 1.25em;
+    font-weight: bold;
+}
+
+.wordbox.section .wordbox-rect {
+    padding: 2px 6px;
+    border: 2px solid #999999;  /* Match the regular wordbox border */
+}
+
+.wordbox.section.lines-hidden .wordbox-rect {
+    border-color: transparent;
+}
+
+.context-menu {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    padding: 4px 0;
+    min-width: 120px;
+    z-index: 1000;
+}
+
+.context-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+    transition: background-color 0.2s;
+}
+
+.context-menu-item:hover {
+    background-color: #f0f0f0;
+} 

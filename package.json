@@ -1,0 +1,25 @@
+{
+  "name": "andron",
+  "version": "1.0.0",
+  "description": "Tool for creating translations of ancient texts.",
+  "main": "dist/main.js",
+  "type": "module",
+  "author": "Richard Kelley",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/electron": "^1.6.12",
+    "electron": "^34.1.0",
+    "typescript": "^5.7.3"
+  },
+  "scripts": {
+    "start": "yarn build && electron .",
+    "build": "yarn build:renderer && yarn build:preload && yarn copy-static",
+    "build:renderer": "tsc",
+    "build:preload": "tsc -p tsconfig.preload.json",
+    "copy-static": "cp src/index.html dist/ && cp src/styles.css dist/ && cp -r assets dist/ && cp src/pdf-template.html dist/ && cp src/*.js dist/ 2>/dev/null || true"
+  },
+  "dependencies": {
+    "@types/pdfkit": "^0.13.9",
+    "pdfkit": "^0.16.0"
+  }
+}

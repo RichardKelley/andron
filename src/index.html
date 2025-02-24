@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+    <title>📜 Andron</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <h3 class="sidebar-title">Layout</h3>
+            <button class="sidebar-button" id="header-btn">Add Chapter</button>
+            <button class="sidebar-button" id="subheader-btn">Add Section</button>
+            <button class="sidebar-button" id="headline-btn">Add Headline</button>
+            <button class="sidebar-button" id="line-btn">Add Line</button>
+            <button class="sidebar-button" id="english-btn">Add Word</button>
+            <button class="sidebar-button" id="marginalia-btn">Add Marginalia</button>
+            <button class="sidebar-button" id="page-number-btn">Add Page Number</button>
+            <hr class="sidebar-divider">
+            <button class="sidebar-button" id="page-btn">Add Page</button>
+            <hr class="sidebar-divider">
+            <button class="sidebar-button" id="save-btn">Save Document</button>
+            <button class="sidebar-button" id="open-btn">Open Document</button>
+            <button class="sidebar-button" id="export-pdf-btn">Export PDF</button>
+            <button class="sidebar-button" id="export-latex-btn">Export LaTeX</button>
+        </div>
+        <div id="separator"></div>
+        <div id="main-content">
+            <div class="canvas-container">
+                <canvas id="mainCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+    <div id="right-sidebar">
+        <h3 class="sidebar-title">Pages</h3>
+        <div id="page-thumbnails">
+            <!-- Page thumbnails will be added here dynamically -->
+        </div>
+    </div>
+    <script type="module" src="renderer.js"></script>
+</body>
+</html> 
