@@ -738,4 +738,98 @@ body {
 
 .context-menu-item:hover {
     background-color: #f0f0f0;
+}
+
+/* Modal dialog styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-dialog {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    width: 400px;
+    max-width: 90%;
+    padding: 24px;
+    transform: translateY(-20px);
+    transition: transform 0.2s;
+}
+
+.modal-overlay.active .modal-dialog {
+    transform: translateY(0);
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: #333;
+}
+
+.modal-message {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 24px;
+    color: #555;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: none;
+}
+
+.modal-button-primary {
+    background-color: #5865f2;
+    color: white;
+}
+
+.modal-button-primary:hover {
+    background-color: #4752c4;
+}
+
+.modal-button-secondary {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.modal-button-secondary:hover {
+    background-color: #e0e0e0;
+}
+
+.modal-button-danger {
+    background-color: #f44336;
+    color: white;
+}
+
+.modal-button-danger:hover {
+    background-color: #d32f2f;
 } 

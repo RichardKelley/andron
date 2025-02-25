@@ -103,6 +103,78 @@ function adjustTextAreaHeight(element: HTMLTextAreaElement) {
     element.style.height = `${element.scrollHeight}px`;
 }
 
+// Custom modal dialog functions
+function showModal(title: string, message: string, showNoButton: boolean = true): Promise<'yes' | 'no' | 'cancel'> {
+    return new Promise((resolve) => {
+        const modalOverlay = document.getElementById('modal-overlay') as HTMLElement;
+        const modalTitle = document.getElementById('modal-title') as HTMLElement;
+        const modalMessage = document.getElementById('modal-message') as HTMLElement;
+        const yesButton = document.getElementById('modal-button-yes') as HTMLButtonElement;
+        const noButton = document.getElementById('modal-button-no') as HTMLButtonElement;
+        const cancelButton = document.getElementById('modal-button-cancel') as HTMLButtonElement;
+        
+        // Set modal content
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        
+        // Show/hide No button based on parameter
+        noButton.style.display = showNoButton ? 'block' : 'none';
+        
+        // Show the modal
+        modalOverlay.classList.add('active');
+        
+        // Focus the Yes button by default
+        yesButton.focus();
+        
+        // Handle button clicks
+        const handleYes = () => {
+            modalOverlay.classList.remove('active');
+            cleanup();
+            resolve('yes');
+        };
+        
+        const handleNo = () => {
+            modalOverlay.classList.remove('active');
+            cleanup();
+            resolve('no');
+        };
+        
+        const handleCancel = () => {
+            modalOverlay.classList.remove('active');
+            cleanup();
+            resolve('cancel');
+        };
+        
+        // Add event listeners
+        yesButton.addEventListener('click', handleYes);
+        noButton.addEventListener('click', handleNo);
+        cancelButton.addEventListener('click', handleCancel);
+        
+        // Also handle keyboard events
+        const handleKeydown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                handleCancel();
+            } else if (e.key === 'Enter' && document.activeElement === yesButton) {
+                handleYes();
+            } else if (e.key === 'Enter' && document.activeElement === noButton) {
+                handleNo();
+            } else if (e.key === 'Enter' && document.activeElement === cancelButton) {
+                handleCancel();
+            }
+        };
+        
+        document.addEventListener('keydown', handleKeydown);
+        
+        // Function to clean up event listeners
+        const cleanup = () => {
+            yesButton.removeEventListener('click', handleYes);
+            noButton.removeEventListener('click', handleNo);
+            cancelButton.removeEventListener('click', handleCancel);
+            document.removeEventListener('keydown', handleKeydown);
+        };
+    });
+}
+
 // Single load event listener that handles everything
 window.addEventListener('load', () => {
     // Set global CSS variables
@@ -1680,7 +1752,7 @@ function serializeDocument(): DocumentState {
 }
 
 // Function to save document
-async function saveDocument() {
+async function saveDocument(): Promise<boolean> {
     try {
         const documentState = serializeDocument();
         const success = await window.electronAPI.saveDocument(
@@ -1701,9 +1773,12 @@ async function saveDocument() {
             // Add a save operation to the history stack
             historyManager.addOperation(historyManager.createSaveOperation());
             updateModifiedState();
+            return true;
         }
+        return false;
     } catch (error) {
         console.error('Error saving document:', error);
+        return false;
     }
 }
 
@@ -2113,8 +2188,147 @@ async function exportLatex() {
     await window.electronAPI.exportLatex(documentData, defaultName);
 }
 
-// Stub function for creating a new document
+// Function for creating a new document
 async function newDocument() {
-    console.log('New document functionality will be implemented here');
-    // TODO: Implement new document functionality
+    // 1. Check if there are unsaved changes
+    if (isDocumentModified) {
+        // Ask user if they want to save changes with Yes/No/Cancel options using custom modal
+        const saveChoice = await showModal(
+            'Save Changes?',
+            'There are unsaved changes in the current document. Do you want to save before creating a new document?'
+        );
+        
+        if (saveChoice === 'yes') {
+            // User chose "Yes" - Save the current document
+            const saveSuccess = await saveDocument();
+            // If save was cancelled or failed, abort new document creation
+            if (!saveSuccess) {
+                console.log('New document creation cancelled - save operation was not completed');
+                return;
+            }
+        } else if (saveChoice === 'no') {
+            // User chose "No" - Confirm they want to discard changes
+            const discardChoice = await showModal(
+                'Discard Changes?',
+                'Are you sure you want to discard unsaved changes and create a new document?',
+                false // Only show Yes/Cancel buttons
+            );
+            
+            if (discardChoice !== 'yes') {
+                // User cancelled - Abort new document creation
+                console.log('New document creation cancelled by user');
+                return;
+            }
+            // User confirmed discard - Continue with new document
+            console.log('Continuing without saving changes');
+        } else {
+            // User chose "Cancel" - Abort new document creation
+            console.log('New document creation cancelled by user');
+            return;
+        }
+    }
+    
+    // 2. Clear the current document name
+    currentDocumentName = null;
+    
+    // 3. Update the window title
+    document.title = '📜 Andron';
+    
+    // 4. Clear existing content
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+        mainContent.innerHTML = '';
+    }
+    
+    // 5. Reset WordBox instances and history
+    WordBox.instances.clear();
+    historyManager.clearHistory();
+    
+    // 6. Reset UI state to defaults
+    const primaryLanguageSelect = document.getElementById('primary-language') as HTMLSelectElement;
+    const secondaryLanguageSelect = document.getElementById('secondary-language') as HTMLSelectElement;
+    const verticalSpacingInput = document.getElementById('vertical-spacing-input') as HTMLInputElement;
+    const glueInput = document.getElementById('glue-input') as HTMLInputElement;
+    const dpiInput = document.getElementById('dpi-input') as HTMLInputElement;
+    const widthInput = document.getElementById('width-input') as HTMLInputElement;
+    const heightInput = document.getElementById('height-input') as HTMLInputElement;
+    const marginTopInput = document.getElementById('margin-top') as HTMLInputElement;
+    const marginRightInput = document.getElementById('margin-right') as HTMLInputElement;
+    const marginBottomInput = document.getElementById('margin-bottom') as HTMLInputElement;
+    const marginLeftInput = document.getElementById('margin-left') as HTMLInputElement;
+    const documentTitle = document.getElementById('document-title') as HTMLTextAreaElement;
+    const documentAuthor = document.getElementById('document-author') as HTMLTextAreaElement;
+    const documentTranslator = document.getElementById('document-translator') as HTMLTextAreaElement;
+    const documentNotes = document.getElementById('document-notes') as HTMLTextAreaElement;
+    
+    // Reset form fields to default values
+    if (primaryLanguageSelect) primaryLanguageSelect.value = 'english';
+    if (secondaryLanguageSelect) secondaryLanguageSelect.value = 'english';
+    if (verticalSpacingInput) {
+        verticalSpacingInput.value = '7.5';
+        WordBox.updateVerticalSpacing(7.5);
+    }
+    if (glueInput) glueInput.value = '3';
+    if (dpiInput) dpiInput.value = '96';
+    if (widthInput) widthInput.value = '8.5';
+    if (heightInput) heightInput.value = '11';
+    if (marginTopInput) marginTopInput.value = '0.75';
+    if (marginRightInput) marginRightInput.value = '0.75';
+    if (marginBottomInput) marginBottomInput.value = '0.75';
+    if (marginLeftInput) marginLeftInput.value = '0.75';
+    
+    // Reset margin checkboxes
+    const marginTopCheck = document.getElementById('margin-top-check') as HTMLInputElement;
+    const marginRightCheck = document.getElementById('margin-right-check') as HTMLInputElement;
+    const marginBottomCheck = document.getElementById('margin-bottom-check') as HTMLInputElement;
+    const marginLeftCheck = document.getElementById('margin-left-check') as HTMLInputElement;
+    if (marginTopCheck) marginTopCheck.checked = false;
+    if (marginRightCheck) marginRightCheck.checked = false;
+    if (marginBottomCheck) marginBottomCheck.checked = false;
+    if (marginLeftCheck) marginLeftCheck.checked = false;
+    
+    // Update margin lines to reflect checkbox changes
+    canvasManager.updateAllMargins();
+    
+    // Clear document info fields
+    if (documentTitle) {
+        documentTitle.value = '';
+        adjustTextAreaHeight(documentTitle);
+    }
+    if (documentAuthor) {
+        documentAuthor.value = '';
+        adjustTextAreaHeight(documentAuthor);
+    }
+    if (documentTranslator) {
+        documentTranslator.value = '';
+        adjustTextAreaHeight(documentTranslator);
+    }
+    if (documentNotes) {
+        documentNotes.value = '';
+        adjustTextAreaHeight(documentNotes);
+    }
+    
+    // Reset page dimensions and margins
+    canvasManager.updateDimensionsForDPI(96);
+    canvasManager.updateDimensionsForInches(8.5, 11);
+    canvasManager.updateMarginsFromInputs({
+        top: '0.75',
+        right: '0.75',
+        bottom: '0.75',
+        left: '0.75'
+    });
+    
+    // 7. Create a new blank page
+    const { canvas, wrapper } = canvasManager.createPage();
+    wrapper.setAttribute('tabindex', '-1');
+    wrapper.style.outline = 'none';
+    
+    // 8. Update thumbnails
+    canvasManager.updateThumbnails();
+    
+    // 9. Reset modified state
+    isDocumentModified = false;
+    updateModifiedState();
+    
+    console.log('New document created');
 }
