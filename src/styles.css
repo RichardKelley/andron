@@ -16,11 +16,12 @@ body {
 
 #sidebar {
     width: 250px;
-    min-width: 100px;
+    min-width: 250px;
+    max-width: 250px;
     background-color: #2f3136;
     height: 100vh;
     overflow-y: auto;
-    border-right: 1px solid #202225;
+    border-right: 1px solid #ddd;
     color: #ffffff;
     padding: 5px;
     box-sizing: border-box;
@@ -28,14 +29,14 @@ body {
 }
 
 #separator {
-    width: 6px;
-    background-color: #202225;
-    cursor: col-resize;
-    transition: background-color 0.2s;
+    width: 0;
+    background-color: transparent;
+    cursor: default;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
 }
 
 #separator:hover {
-    background-color: #5865f2;
+    background-color: transparent;
 }
 
 #main-content {
@@ -405,12 +406,6 @@ body {
     text-align: center;
     font-size: 12px;
     margin-top: 4px;
-}
-
-#separator {
-    cursor: col-resize;
-    background-color: #eee;
-    width: 4px;
 }
 
 .param-group {

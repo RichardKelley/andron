@@ -126,6 +126,7 @@ window.addEventListener('load', () => {
     const chapterBtn = document.getElementById('header-btn') as HTMLButtonElement;
     const subchapterBtn = document.getElementById('subheader-btn') as HTMLButtonElement;
     const headlineBtn = document.getElementById('headline-btn') as HTMLButtonElement;
+    const newBtn = document.getElementById('new-btn') as HTMLButtonElement;
 
     // Initialize right sidebar tabs
     initRightSidebar();
@@ -476,31 +477,6 @@ window.addEventListener('load', () => {
         }
     });
 
-    // Separator drag functionality
-    let isResizing = false;
-    let lastDownX = 0;
-
-    separator.addEventListener('mousedown', (e) => {
-        isResizing = true;
-        lastDownX = e.clientX;
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
-
-        const delta = e.clientX - lastDownX;
-        lastDownX = e.clientX;
-
-        const newWidth = sidebar.offsetWidth + delta;
-        if (newWidth > 100 && newWidth < window.innerWidth - 100) {
-            sidebar.style.width = `${newWidth}px`;
-        }
-    });
-
-    document.addEventListener('mouseup', () => {
-        isResizing = false;
-    });
-
     // Create first page and clear main content
     const mainContent = document.querySelector('#main-content');
     if (mainContent) {
@@ -516,6 +492,7 @@ window.addEventListener('load', () => {
     openBtn.addEventListener('click', loadDocument);
     exportPdfBtn.addEventListener('click', exportPdf);
     exportLatexBtn.addEventListener('click', exportLatex);
+    newBtn.addEventListener('click', newDocument);
 
     // Add keydown handler for line visibility toggle
     document.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -2131,15 +2108,13 @@ async function exportPdf() {
 
 // Add after exportPdf function
 async function exportLatex() {
-    try {
-        const documentState = serializeDocument();
-        // If we have a stored document name, use it as default filename
-        const defaultName = currentDocumentName ? `${currentDocumentName}.tex` : undefined;
-        const success = await window.electronAPI.exportLatex(JSON.stringify(documentState), defaultName);
-        if (success) {
-            console.log('LaTeX exported successfully');
-        }
-    } catch (error) {
-        console.error('Error exporting LaTeX:', error);
-    }
-} 
+    const documentData = JSON.stringify(serializeDocument());
+    const defaultName = currentDocumentName || 'andron_document';
+    await window.electronAPI.exportLatex(documentData, defaultName);
+}
+
+// Stub function for creating a new document
+async function newDocument() {
+    console.log('New document functionality will be implemented here');
+    // TODO: Implement new document functionality
+}
