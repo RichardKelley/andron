@@ -5,7 +5,7 @@ import { getAllConnectedBoxes, updateChildBoxPosition } from './wordbox.js';
 import { CAP_HEIGHT } from './constants.js';
 
 interface CanvasOperation {
-    type: 'addBox' | 'deleteBox' | 'moveBox' | 'addLine' | 'deleteLine' | 'editBox' | 'moveLine' | 'addMarginalia' | 'deleteMarginalia' | 'moveMarginalia' | 'save';
+    type: 'addBox' | 'deleteBox' | 'moveBox' | 'addLine' | 'deleteLine' | 'editBox' | 'moveLine' | 'addMarginalia' | 'deleteMarginalia' | 'moveMarginalia' | 'editMarginalia' | 'save';
     data: any;
     undo: () => void;
     redo: () => void;
@@ -730,6 +730,25 @@ export class HistoryManager {
             redo: () => {
                 moveData.marginalia.getElement().style.left = `${moveData.endX}px`;
                 moveData.marginalia.getElement().style.top = `${moveData.endY}px`;
+            }
+        };
+    }
+
+    public createEditMarginaliaOperation(marginalia: any, oldText: string, newText: string): CanvasOperation {
+        const editData = {
+            marginalia: marginalia,
+            oldText: oldText,
+            newText: newText
+        };
+
+        return {
+            type: 'editMarginalia',
+            data: editData,
+            undo: () => {
+                editData.marginalia.setText(editData.oldText);
+            },
+            redo: () => {
+                editData.marginalia.setText(editData.newText);
             }
         };
     }

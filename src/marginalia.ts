@@ -21,6 +21,7 @@ export class Marginalia {
     private initialY: number = 0;
     private initialWidth: number = 0;
     private initialHeight: number = 0;
+    private textChangeTimeout: NodeJS.Timeout | null = null;
 
     constructor(x: number, y: number) {
         this.id = `marginalia-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -104,6 +105,56 @@ export class Marginalia {
             if (e.target === this.textArea || e.target === this.element) {
                 this.element.classList.add('selected');
                 this.setEditMode(true);
+            }
+        });
+
+        // Track text changes
+        let initialText = this.textArea.value;
+        let lastRecordedText = initialText;
+        
+        // When the textarea gets focus, store the initial text
+        this.textArea.addEventListener('focus', () => {
+            initialText = this.textArea.value;
+            lastRecordedText = initialText;
+        });
+        
+        // Track changes as the user types
+        this.textArea.addEventListener('input', () => {
+            const newText = this.textArea.value;
+            // Only record changes after a short delay to avoid too many history entries
+            // and only if the text has actually changed
+            if (newText !== lastRecordedText) {
+                // Debounce the recording of changes
+                if (this.textChangeTimeout) {
+                    clearTimeout(this.textChangeTimeout);
+                }
+                this.textChangeTimeout = setTimeout(() => {
+                    if (window.historyManager) {
+                        console.log('Marginalia text changed:', { lastRecordedText, newText });
+                        window.historyManager.addOperation(
+                            window.historyManager.createEditMarginaliaOperation(this, lastRecordedText, newText)
+                        );
+                        lastRecordedText = newText;
+                    }
+                }, 500); // Wait 500ms after typing stops before recording the change
+            }
+        });
+        
+        // When the textarea loses focus, make sure any pending changes are recorded immediately
+        this.textArea.addEventListener('blur', () => {
+            if (this.textChangeTimeout) {
+                clearTimeout(this.textChangeTimeout);
+            }
+            const newText = this.textArea.value;
+            if (newText !== lastRecordedText) {
+                // Text has changed, record the edit operation
+                if (window.historyManager) {
+                    console.log('Marginalia text changed (on blur):', { lastRecordedText, newText });
+                    window.historyManager.addOperation(
+                        window.historyManager.createEditMarginaliaOperation(this, lastRecordedText, newText)
+                    );
+                    lastRecordedText = newText;
+                }
             }
         });
 
