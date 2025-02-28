@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, MenuItemConstructorOptions } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -32,6 +32,97 @@ function createWindow() {
         show: false,
         backgroundColor: '#ffffff'
     });
+
+    // Create the application menu
+    const template: MenuItemConstructorOptions[] = [
+        {
+            label: 'File',
+            submenu: [
+                {
+                    label: 'New',
+                    accelerator: 'CmdOrCtrl+N',
+                    click: () => {
+                        mainWindow.webContents.send('menu-new');
+                    }
+                },
+                {
+                    label: 'Open...',
+                    accelerator: 'CmdOrCtrl+O',
+                    click: () => {
+                        mainWindow.webContents.send('menu-open');
+                    }
+                },
+                {
+                    label: 'Save',
+                    accelerator: 'CmdOrCtrl+S',
+                    click: () => {
+                        mainWindow.webContents.send('menu-save');
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Exit',
+                    click: () => {
+                        app.quit();
+                    }
+                }
+            ]
+        },
+        {
+            label: 'Export',
+            submenu: [
+                {
+                    label: 'Export as PDF...',
+                    click: () => {
+                        mainWindow.webContents.send('menu-export-pdf');
+                    }
+                },
+                {
+                    label: 'Export as LaTeX...',
+                    click: () => {
+                        mainWindow.webContents.send('menu-export-latex');
+                    }
+                },
+                {
+                    label: 'Export Lexicon as JSON...',
+                    click: () => {
+                        mainWindow.webContents.send('menu-export-lexicon');
+                    }
+                }
+            ]
+        },
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' },
+                { role: 'redo' },
+                { type: 'separator' },
+                { role: 'cut' },
+                { role: 'copy' },
+                { role: 'paste' },
+                { role: 'delete' },
+                { type: 'separator' },
+                { role: 'selectAll' }
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' },
+                { role: 'forceReload' },
+                { role: 'toggleDevTools' },
+                { type: 'separator' },
+                { role: 'resetZoom' },
+                { role: 'zoomIn' },
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
+            ]
+        }
+    ];
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
 
     // Add error handler
     mainWindow.webContents.on('render-process-gone', (event, details) => {
@@ -591,6 +682,29 @@ ipcMain.handle('export-latex', async (event, documentData, defaultName) => {
             return true;
         } catch (error) {
             console.error('Error in LaTeX export:', error);
+            return false;
+        }
+    }
+    return false;
+});
+
+// Add lexicon export handler
+ipcMain.handle('export-lexicon', async (event, lexiconObject, defaultName) => {
+    const { filePath } = await dialog.showSaveDialog({
+        defaultPath: defaultName,
+        filters: [
+            { name: 'JSON Document', extensions: ['json'] }
+        ],
+        properties: ['createDirectory']
+    });
+
+    if (filePath) {
+        try {
+            // Write the object directly as JSON
+            await fs.writeFile(filePath, JSON.stringify(lexiconObject, null, 2), 'utf-8');
+            return true;
+        } catch (error) {
+            console.error('Error in lexicon export:', error);
             return false;
         }
     }

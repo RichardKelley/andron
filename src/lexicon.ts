@@ -83,9 +83,9 @@ export class Lexicon {
         return this.entries.get(primaryText);
     }
 
-    public toJSON(): string {
+    public toJSON(): any[] {
         const entriesArray = Array.from(this.entries.values()).map(entry => entry.toJSON());
-        return JSON.stringify(entriesArray);
+        return entriesArray;
     }
 
     public static fromJSON(json: string): Lexicon {

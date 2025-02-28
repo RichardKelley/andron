@@ -26,7 +26,14 @@ declare global {
             openDocument: () => Promise<{ data: string; filePath: string } | null>;
             exportPdf: (documentData: string, defaultName?: string) => Promise<boolean>;
             exportLatex: (documentData: string, defaultName?: string) => Promise<boolean>;
+            exportLexicon: (lexiconData: object, defaultName?: string) => Promise<boolean>;
             getLastSavedPath: () => Promise<string | null>;
+            onMenuNew: (callback: () => void) => void;
+            onMenuOpen: (callback: () => void) => void;
+            onMenuSave: (callback: () => void) => void;
+            onMenuExportPdf: (callback: () => void) => void;
+            onMenuExportLatex: (callback: () => void) => void;
+            onMenuExportLexicon: (callback: () => void) => void;
         }
         historyManager: HistoryManager;
     }
@@ -190,16 +197,11 @@ window.addEventListener('load', () => {
     const pageBtn = document.getElementById('page-btn') as HTMLButtonElement;
     const lineBtn = document.getElementById('line-btn') as HTMLButtonElement;
     const marginaliaBtn = document.getElementById('marginalia-btn') as HTMLButtonElement;
-    const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
-    const openBtn = document.getElementById('open-btn') as HTMLButtonElement;
-    const exportPdfBtn = document.getElementById('export-pdf-btn') as HTMLButtonElement;
-    const exportLatexBtn = document.getElementById('export-latex-btn') as HTMLButtonElement;
     const pageNumberBtn = document.getElementById('page-number-btn') as HTMLButtonElement;
     const documentInfoTab = document.getElementById('document-info-tab') as HTMLButtonElement;
     const chapterBtn = document.getElementById('header-btn') as HTMLButtonElement;
     const subchapterBtn = document.getElementById('subheader-btn') as HTMLButtonElement;
     const headlineBtn = document.getElementById('headline-btn') as HTMLButtonElement;
-    const newBtn = document.getElementById('new-btn') as HTMLButtonElement;
 
     // Initialize right sidebar tabs
     initRightSidebar();
@@ -559,13 +561,6 @@ window.addEventListener('load', () => {
         wrapper.setAttribute('tabindex', '-1');
         wrapper.style.outline = 'none'; // Hide the focus outline
     }
-
-    // Add save/open handlers
-    saveBtn.addEventListener('click', saveDocument);
-    openBtn.addEventListener('click', loadDocument);
-    exportPdfBtn.addEventListener('click', exportPdf);
-    exportLatexBtn.addEventListener('click', exportLatex);
-    newBtn.addEventListener('click', newDocument);
 
     // Add keydown handler for line visibility toggle
     document.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -1813,7 +1808,7 @@ async function loadDocument() {
 
             // Load lexicon data if available
             if (documentState.lexicon) {
-                Lexicon.fromJSON(documentState.lexicon);
+                Lexicon.fromJSON(JSON.stringify(documentState.lexicon));
             }
 
             // Update UI state
@@ -2339,3 +2334,43 @@ async function newDocument() {
     
     console.log('New document created');
 }
+
+// Add menu event handlers
+window.electronAPI.onMenuNew(() => {
+    newDocument();
+});
+
+window.electronAPI.onMenuOpen(() => {
+    loadDocument();
+});
+
+window.electronAPI.onMenuSave(() => {
+    saveDocument();
+});
+
+window.electronAPI.onMenuExportPdf(() => {
+    exportPdf();
+});
+
+window.electronAPI.onMenuExportLatex(() => {
+    exportLatex();
+});
+
+// Add after exportLatex function
+async function exportLexicon() {
+    try {
+        // Send the raw lexicon object, not a JSON string
+        const lexiconObject = Lexicon.getInstance().toJSON();
+        const defaultName = currentDocumentName ? `${currentDocumentName}_lexicon.json` : 'lexicon.json';
+        const success = await window.electronAPI.exportLexicon(lexiconObject, defaultName);
+        if (success) {
+            console.log('Lexicon exported successfully');
+        }
+    } catch (error) {
+        console.error('Error exporting lexicon:', error);
+    }
+}
+
+window.electronAPI.onMenuExportLexicon(() => {
+    exportLexicon();
+});
