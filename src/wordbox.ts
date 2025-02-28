@@ -1,5 +1,6 @@
 // Import CAP_HEIGHT from constants
 import { CAP_HEIGHT } from './constants.js';
+import { Lexicon } from './lexicon.js';
 
 export class WordBox {
     public static instances: Map<string, WordBox> = new Map();
@@ -285,6 +286,109 @@ export class WordBox {
     public getIsChapter(): boolean { return this.isChapter; }
     public getIsSection(): boolean { return this.isSection; }
     public getIsHeadline(): boolean { return this.isHeadline; }
+
+    // Change from private to public
+    public updateLexicon(newText: string, oldText?: string): void {
+        // Skip if the text is the default "New Word"
+        if (newText === 'New Word') {
+            return;
+        }
+
+        const lexicon = Lexicon.getInstance();
+        const pageContainer = this.element.closest('.canvas-container') as HTMLElement;
+        if (!pageContainer) return;
+
+        const pageNumber = parseInt(pageContainer.dataset.pageNumber || '1');
+
+        // If this is a parent box
+        if (!this.parentId) {
+            // Add new word to lexicon with page number
+            lexicon.addEntry(newText, undefined, pageNumber);
+
+            // If this box has a child box, add its text as a translation
+            if (this.childBoxIdBottom) {
+                const childBox = WordBox.fromElement(document.getElementById(this.childBoxIdBottom));
+                if (childBox) {
+                    const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent;
+                    if (childText && childText !== 'New Word') {
+                        lexicon.addEntry(newText, childText);
+                    }
+                }
+            }
+            if (this.childBoxIdTop) {
+                const childBox = WordBox.fromElement(document.getElementById(this.childBoxIdTop));
+                if (childBox) {
+                    const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent;
+                    if (childText && childText !== 'New Word') {
+                        lexicon.addEntry(newText, childText);
+                    }
+                }
+            }
+        }
+        // If this is a child box
+        else {
+            // Get the parent box's text and add this as a translation
+            const parentBox = WordBox.fromElement(document.getElementById(this.parentId));
+            if (parentBox) {
+                const parentText = parentBox.getElement().querySelector('.wordbox-rect')?.textContent;
+                if (parentText && parentText !== 'New Word') {
+                    lexicon.addEntry(parentText, newText);
+                }
+            }
+        }
+    }
+
+    // Add method to get suggested translation
+    public getSuggestedTranslation(): string | undefined {
+        // Only get suggestions for child boxes
+        if (!this.parentId) {
+            return undefined;
+        }
+
+        // Get the parent box's text
+        const parentBox = WordBox.fromElement(document.getElementById(this.parentId));
+        if (!parentBox) {
+            return undefined;
+        }
+
+        const parentText = parentBox.getElement().querySelector('.wordbox-rect')?.textContent;
+        if (!parentText) {
+            return undefined;
+        }
+
+        // Look up the parent text in the lexicon
+        const lexicon = Lexicon.getInstance();
+        const entry = lexicon.getEntry(parentText);
+        if (!entry) {
+            return undefined;
+        }
+
+        // Return the first translation if available
+        const translations = entry.getTranslations();
+        return translations.length > 0 ? translations[0] : undefined;
+    }
+
+    // Add method to get translations for a parent box
+    public getTranslationsForWord(): string[] | undefined {
+        // Only get translations for parent boxes
+        if (this.parentId) {
+            return undefined;
+        }
+
+        const text = this.element.querySelector('.wordbox-rect')?.textContent;
+        if (!text) {
+            return undefined;
+        }
+
+        // Look up the text in the lexicon
+        const lexicon = Lexicon.getInstance();
+        const entry = lexicon.getEntry(text);
+        if (!entry) {
+            return undefined;
+        }
+
+        return entry.getTranslations();
+    }
 }
 
 

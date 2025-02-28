@@ -4,6 +4,7 @@ import { CAP_HEIGHT, ASCENDER_HEIGHT, PAGE_MARGIN, BODY_HEIGHT, DESCENDER_HEIGHT
 import { CanvasManager } from './canvas-manager.js';
 import { getConnectedBoxWidths } from './renderer.js';
 import { HistoryManager } from './history-manager.js';
+import { Lexicon } from './lexicon.js';
 
 export class WordBoxManager {
     private currentlyHighlightedBox: HTMLElement | null = null;
@@ -115,6 +116,9 @@ export class WordBoxManager {
                 // First update the text content to get the final state
                 const newText = input.value.trim();
                 rectContainer.textContent = newText;
+
+                // Update lexicon with the new text
+                editedBox.updateLexicon(newText, originalText);
                 
                 // Get the page container and canvas
                 const pageContainer = editedBox.getElement().closest('.canvas-container') as HTMLElement;
@@ -519,6 +523,9 @@ export class WordBoxManager {
             // Get the word box being edited
             const editedBox = WordBox.fromElement(wordBoxEl);
             if (editedBox) {
+                // Update lexicon with the new text
+                editedBox.updateLexicon(newText, oldText);
+
                 // Record edit operation if text changed
                 if (newText !== oldText && this.historyManager && !this.isEditOperationAdded) {
                     this.historyManager.addOperation(
@@ -891,8 +898,11 @@ export class WordBoxManager {
                 (parentRect.top - canvasRect.top - CAP_HEIGHT - WordBox.verticalSpacing) * scaleY : // Use dynamic spacing
                 (parentRect.bottom - canvasRect.top + WordBox.verticalSpacing) * scaleY; // Use dynamic spacing
             
-            // Create the child box with the same orientation as the current child
-            const childBox = new WordBox(x, y, 'New Word', '', isTopChild, !isTopChild);
+            // Get suggested translation if available
+            const translations = wordBox.getTranslationsForWord();
+            const initialText = translations && translations.length > 0 ? translations[0] : 'New Word';
+
+            const childBox = new WordBox(x, y, initialText, '', isTopChild, !isTopChild);
             
             // Set the highlighted node as the parent
             childBox.setParentId(wordBox.getId());
@@ -996,7 +1006,7 @@ export class WordBoxManager {
                 measureSpan.style.position = 'absolute';
                 measureSpan.style.whiteSpace = 'pre';
                 document.body.appendChild(measureSpan);
-                this.createAndSetupInput(rectContainer, childBox.getElement(), measureSpan, '');
+                this.createAndSetupInput(rectContainer, childBox.getElement(), measureSpan, initialText);
             }
         }
     }
@@ -1065,8 +1075,12 @@ export class WordBoxManager {
                 (parentRect.top - canvasRect.top - CAP_HEIGHT - WordBox.verticalSpacing) * scaleY : // Use dynamic spacing
                 (parentRect.bottom - canvasRect.top + WordBox.verticalSpacing) * scaleY; // Use dynamic spacing
             
+            // Get suggested translation if available
+            const translations = parentBox.getTranslationsForWord();
+            const initialText = translations && translations.length > 0 ? translations[0] : 'New Word';
+            
             // Create the child box, passing isTop to indicate if it's a top child
-            const childBox = new WordBox(x, y, 'New Word', '', isTop, !isTop);
+            const childBox = new WordBox(x, y, initialText, '', isTop, !isTop);
             childBox.setParentId(parentBox.getId());
             
             // Remove the clicked circle
@@ -1152,6 +1166,17 @@ export class WordBoxManager {
             if (this.currentlyHighlightedCircle) {
                 this.currentlyHighlightedCircle.classList.remove('highlighted');
                 this.currentlyHighlightedCircle = null;
+            }
+            
+            // Start editing the new child box
+            const rectContainer = childBox.getElement().querySelector('.wordbox-rect') as HTMLElement;
+            if (rectContainer) {
+                const measureSpan = document.createElement('span');
+                measureSpan.style.visibility = 'hidden';
+                measureSpan.style.position = 'absolute';
+                measureSpan.style.whiteSpace = 'pre';
+                document.body.appendChild(measureSpan);
+                this.createAndSetupInput(rectContainer, childBox.getElement(), measureSpan, initialText);
             }
             
             // Prevent the click from triggering other handlers

@@ -17,6 +17,7 @@ import { CanvasManager } from './canvas-manager.js';
 import { WordBoxManager } from './word-box-manager.js';
 import { Marginalia } from './marginalia.js';
 import { HistoryManager } from './history-manager.js';
+import { Lexicon } from './lexicon.js';
 
 declare global {
     interface Window {
@@ -1747,7 +1748,8 @@ function serializeDocument(): DocumentState {
         version: '1.0', // Add version for future compatibility
         pageParameters: pageParams,
         uiState,
-        pages
+        pages,
+        lexicon: Lexicon.getInstance().toJSON() // Add lexicon data
     };
 }
 
@@ -1808,6 +1810,11 @@ async function loadDocument() {
             // Reset WordBox instances and history
             WordBox.instances.clear();
             historyManager.clearHistory();
+
+            // Load lexicon data if available
+            if (documentState.lexicon) {
+                Lexicon.fromJSON(documentState.lexicon);
+            }
 
             // Update UI state
             const primaryLanguageSelect = document.getElementById('primary-language') as HTMLSelectElement;
