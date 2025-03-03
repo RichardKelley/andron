@@ -827,8 +827,8 @@ export class WordBoxManager {
             });
             this.currentlyHighlightedBox = null;
             this.currentlyHighlightedCircle = null;
-        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== 'x') {
-            // Edit functionality when typing a character (but not 'x')
+        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== 'x' && e.key !== 'c') {
+            // Edit functionality when typing a character (but not 'x' or 'c')
             e.preventDefault();
             const rectContainer = this.currentlyHighlightedBox!.querySelector('.wordbox-rect') as HTMLElement;
             if (rectContainer) {
