@@ -34,6 +34,8 @@ declare global {
             onMenuExportPdf: (callback: () => void) => void;
             onMenuExportLatex: (callback: () => void) => void;
             onMenuExportLexicon: (callback: () => void) => void;
+            onCheckUnsavedChanges: (callback: () => Promise<void>) => void;
+            confirmClose: (shouldClose: boolean) => void;
         }
         historyManager: HistoryManager;
     }
@@ -183,6 +185,61 @@ function showModal(title: string, message: string, showNoButton: boolean = true)
     });
 }
 
+// Initialize event listeners
+function initEventListeners() {
+    // ... existing code ...
+
+    // Add event listener for checking unsaved changes before closing
+    window.electronAPI.onCheckUnsavedChanges(async () => {
+        await handleBeforeClose();
+    });
+}
+
+// Function to handle the application close event
+async function handleBeforeClose() {
+    // Check if there are unsaved changes
+    if (isDocumentModified) {
+        // Ask user if they want to save changes with Yes/No/Cancel options using custom modal
+        const saveChoice = await showModal(
+            'Save Changes?',
+            'There are unsaved changes in the current document. Do you want to save before closing?'
+        );
+        
+        if (saveChoice === 'yes') {
+            // User chose "Yes" - Save the current document
+            const saveSuccess = await saveDocument();
+            // If save was successful, close the application
+            if (saveSuccess) {
+                window.electronAPI.confirmClose(true);
+            } else {
+                // If save was cancelled or failed, don't close the application
+                window.electronAPI.confirmClose(false);
+            }
+        } else if (saveChoice === 'no') {
+            // User chose "No" - Confirm they want to discard changes
+            const discardChoice = await showModal(
+                'Discard Changes?',
+                'Are you sure you want to discard unsaved changes and close the application?',
+                false // Only show Yes/Cancel buttons
+            );
+            
+            if (discardChoice === 'yes') {
+                // User confirmed discard - Close the application
+                window.electronAPI.confirmClose(true);
+            } else {
+                // User cancelled - Don't close the application
+                window.electronAPI.confirmClose(false);
+            }
+        } else {
+            // User chose "Cancel" - Don't close the application
+            window.electronAPI.confirmClose(false);
+        }
+    } else {
+        // No unsaved changes, close the application
+        window.electronAPI.confirmClose(true);
+    }
+}
+
 // Single load event listener that handles everything
 window.addEventListener('load', () => {
     // Set global CSS variables
@@ -205,6 +262,9 @@ window.addEventListener('load', () => {
 
     // Initialize right sidebar tabs
     initRightSidebar();
+    
+    // Initialize event listeners for application events
+    initEventListeners();
 
     // Add document click handler to clear marginalia selection
     document.addEventListener('click', (e) => {

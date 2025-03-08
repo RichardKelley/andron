@@ -13,6 +13,8 @@ interface ElectronAPI {
     onMenuExportPdf: (callback: () => void) => void;
     onMenuExportLatex: (callback: () => void) => void;
     onMenuExportLexicon: (callback: () => void) => void;
+    onCheckUnsavedChanges: (callback: () => void) => void;
+    confirmClose: (shouldClose: boolean) => void;
 }
 
 // Expose any APIs to renderer here
@@ -30,5 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onMenuSave: (callback: () => void) => ipcRenderer.on('menu-save', callback),
     onMenuExportPdf: (callback: () => void) => ipcRenderer.on('menu-export-pdf', callback),
     onMenuExportLatex: (callback: () => void) => ipcRenderer.on('menu-export-latex', callback),
-    onMenuExportLexicon: (callback: () => void) => ipcRenderer.on('menu-export-lexicon', callback)
+    onMenuExportLexicon: (callback: () => void) => ipcRenderer.on('menu-export-lexicon', callback),
+    onCheckUnsavedChanges: (callback: () => void) => ipcRenderer.on('check-unsaved-changes', callback),
+    confirmClose: (shouldClose: boolean) => ipcRenderer.send('confirm-close', shouldClose)
 } as ElectronAPI); 

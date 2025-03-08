@@ -33,6 +33,14 @@ function createWindow() {
         backgroundColor: '#ffffff'
     });
 
+    // Add close event handler to check for unsaved changes
+    mainWindow.on('close', (e) => {
+        // Prevent the default close behavior
+        e.preventDefault();
+        // Send a message to the renderer to check for unsaved changes
+        mainWindow.webContents.send('check-unsaved-changes');
+    });
+
     // Create the application menu
     const template: MenuItemConstructorOptions[] = [
         {
@@ -716,4 +724,13 @@ ipcMain.handle('export-lexicon', async (event, lexiconObject, defaultName) => {
         }
     }
     return false;
+});
+
+// Add IPC handler for confirming application close
+ipcMain.on('confirm-close', (event, shouldClose) => {
+    if (shouldClose) {
+        // If user confirmed to close, quit the application
+        app.exit();
+    }
+    // If user cancelled, do nothing and the application will remain open
 }); 
