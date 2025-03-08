@@ -1888,8 +1888,34 @@ async function loadDocument() {
 
                 // Create lines with their original IDs and positions
                 for (const lineState of pageState.lines) {
-                    const line = canvasManager.addTextLine(pageState.pageNumber, lineState.yPosition);
-                    lineMap.set(lineState.id, line);
+                    // Get existing lines for this page
+                    const existingLines = canvasManager.getTextLines().get(pageState.pageNumber) || [];
+                    
+                    // Check if a line with this ID already exists
+                    const existingLine = existingLines.find(line => line.getId() === lineState.id);
+                    
+                    if (existingLine) {
+                        // If line already exists, just update its position
+                        existingLine.setYPosition(lineState.yPosition);
+                        lineMap.set(lineState.id, existingLine);
+                    } else {
+                        // Create a new line
+                        const line = canvasManager.addTextLine(pageState.pageNumber, lineState.yPosition);
+                        
+                        // Extract the stable ID part from the original ID
+                        const originalStableId = lineState.id.split('-')[2];
+                        
+                        // Override the stableId property to match the original
+                        if (originalStableId) {
+                            Object.defineProperty(line, 'stableId', {
+                                value: originalStableId,
+                                writable: false,
+                                configurable: true
+                            });
+                        }
+                        
+                        lineMap.set(lineState.id, line);
+                    }
                 }
 
                 // First create all boxes without setting up relationships
