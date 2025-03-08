@@ -220,7 +220,7 @@ body {
 }
 
 .page-thumbnail {
-    width: 100%;  /* Will now be relative to the 80% container width */
+    width: 75%;  /* Reduce to 50% of container width */
     aspect-ratio: 0.773; /* Maintains 8.5x11 ratio */
     background-color: white;
     border: 1px solid #ddd;
@@ -228,6 +228,7 @@ body {
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     position: relative;
+    margin: 0 auto;  /* Center the thumbnail */
 }
 
 .page-thumbnail:hover {
