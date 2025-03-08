@@ -1217,6 +1217,13 @@ export class WordBoxManager {
 
         const target = e.target as HTMLElement;
         
+        // Check if we clicked on a sidebar
+        const isSidebar = target.closest('#right-sidebar') || target.closest('#sidebar');
+        if (isSidebar) {
+            // Don't handle clicks on the sidebar
+            return;
+        }
+        
         // Find and focus the canvas container without scrolling
         const canvasContainer = target.closest('.canvas-container') as HTMLElement;
         if (canvasContainer) {
@@ -1275,6 +1282,12 @@ export class WordBoxManager {
             box.setIndividuallySelected(false);
         });
         this.currentlyHighlightedBox = null;
+        
+        // Clear lexicon info if no wordbox is selected
+        const updateLexiconInfo = (window as any).updateLexiconInfo;
+        if (typeof updateLexiconInfo === 'function') {
+            updateLexiconInfo(null);
+        }
         
         // If we clicked on a word box
         if (clickedWordBox) {

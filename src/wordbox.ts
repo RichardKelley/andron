@@ -134,6 +134,33 @@ export class WordBox {
         if (this.selected === selected) return; // Only update if state actually changes
         this.selected = selected; 
         this.updateCssClasses();
+        
+        // If this is a parent box with no individually selected child,
+        // update the lexicon info when it's selected
+        if (selected && !this.parentId) {
+            const hasIndividuallySelectedChild = false;
+            
+            // Check if any child is individually selected
+            if (this.childBoxIdTop) {
+                const topChild = WordBox.fromElement(document.getElementById(this.childBoxIdTop));
+                if (topChild && topChild.isIndividuallySelected()) {
+                    return; // Don't update lexicon info if a child is already individually selected
+                }
+            }
+            
+            if (this.childBoxIdBottom) {
+                const bottomChild = WordBox.fromElement(document.getElementById(this.childBoxIdBottom));
+                if (bottomChild && bottomChild.isIndividuallySelected()) {
+                    return; // Don't update lexicon info if a child is already individually selected
+                }
+            }
+            
+            // Update lexicon info if no child is individually selected
+            const updateLexiconInfo = (window as any).updateLexiconInfo;
+            if (typeof updateLexiconInfo === 'function') {
+                updateLexiconInfo(this);
+            }
+        }
     }
 
     // Add getter and setter for individual selection state
@@ -142,6 +169,15 @@ export class WordBox {
         if (this.individuallySelected === selected) return; // Only update if state actually changes
         this.individuallySelected = selected; 
         this.updateCssClasses();
+        
+        // Update lexicon info in the sidebar when a wordbox is individually selected
+        if (selected) {
+            // Call the updateLexiconInfo function from renderer.ts
+            const updateLexiconInfo = (window as any).updateLexiconInfo;
+            if (typeof updateLexiconInfo === 'function') {
+                updateLexiconInfo(this);
+            }
+        }
     }
 
     // Add getters and setters for navigation state

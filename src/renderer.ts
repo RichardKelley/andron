@@ -1108,6 +1108,24 @@ window.addEventListener('load', () => {
             left: marginLeftInput.value
         });
     });
+
+    // Add event listener to clear lexicon info when clicking on the canvas
+    document.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const isWordBox = target.closest('[id^="wordbox-"]');
+        const isWordBoxCircle = target.classList.contains('wordbox-circle-bottom') || 
+                                target.classList.contains('wordbox-circle-top');
+        const isSidebar = target.closest('#right-sidebar') || target.closest('#sidebar');
+        
+        // If we clicked outside of any wordbox, wordbox circle, or sidebar
+        if (!isWordBox && !isWordBoxCircle && !isSidebar) {
+            // Clear lexicon info
+            const lexiconInfoDiv = document.getElementById('lexicon-info');
+            if (lexiconInfoDiv) {
+                lexiconInfoDiv.style.display = 'none';
+            }
+        }
+    });
 });
 
 // Function to initialize right sidebar
@@ -1200,6 +1218,17 @@ function initRightSidebar() {
                 <option value="english">English</option>
                 <option value="ancient-greek">Ancient Greek (with polytonic diacritics)</option>
             </select>
+        </div>
+        <hr class="sidebar-divider">
+        <div id="lexicon-info" class="param-group" style="display: none;">
+            <div class="param-group">
+                <label for="parent-wordbox-text">Primary Text:</label>
+                <input type="text" id="parent-wordbox-text" class="param-input" readonly>
+            </div>
+            <div class="param-group">
+                <label for="child-wordbox-translation">Translation:</label>
+                <select id="child-wordbox-translation" class="param-input"></select>
+            </div>
         </div>
     `;
 
@@ -2460,3 +2489,141 @@ async function exportLexicon() {
 window.electronAPI.onMenuExportLexicon(() => {
     exportLexicon();
 });
+
+// Function to update lexicon information in the sidebar when a wordbox is selected
+function updateLexiconInfo(selectedWordBox: WordBox | null) {
+    const lexiconInfoDiv = document.getElementById('lexicon-info');
+    const parentWordboxText = document.getElementById('parent-wordbox-text') as HTMLInputElement;
+    const childWordboxTranslation = document.getElementById('child-wordbox-translation') as HTMLSelectElement;
+    
+    if (!lexiconInfoDiv || !parentWordboxText || !childWordboxTranslation) return;
+    
+    // Clear previous content
+    childWordboxTranslation.innerHTML = '';
+    
+    if (!selectedWordBox) {
+        lexiconInfoDiv.style.display = 'none';
+        return;
+    }
+    
+    // Get the parent box and its text
+    let parentBox: WordBox | undefined;
+    let parentText: string | undefined;
+    let childBox: WordBox | undefined;
+    
+    if (selectedWordBox.getParentId()) {
+        // This is a child box
+        childBox = selectedWordBox;
+        parentBox = WordBox.fromElement(document.getElementById(selectedWordBox.getParentId()!));
+        if (parentBox) {
+            parentText = parentBox.getElement().querySelector('.wordbox-rect')?.textContent || '';
+        }
+    } else {
+        // This is a parent box
+        parentBox = selectedWordBox;
+        parentText = selectedWordBox.getElement().querySelector('.wordbox-rect')?.textContent || '';
+        
+        // Check if this parent has an individually selected child
+        const childIdTop = parentBox.getChildBoxIdTop();
+        const childIdBottom = parentBox.getChildBoxIdBottom();
+        
+        if (childIdTop) {
+            const topChild = WordBox.fromElement(document.getElementById(childIdTop));
+            if (topChild && topChild.isIndividuallySelected()) {
+                childBox = topChild;
+            }
+        }
+        
+        if (!childBox && childIdBottom) {
+            const bottomChild = WordBox.fromElement(document.getElementById(childIdBottom));
+            if (bottomChild && bottomChild.isIndividuallySelected()) {
+                childBox = bottomChild;
+            }
+        }
+    }
+    
+    // If we don't have both a parent and child box, hide the lexicon info
+    if (!parentBox || !parentText || !childBox) {
+        lexiconInfoDiv.style.display = 'none';
+        return;
+    }
+    
+    // Show the lexicon info
+    lexiconInfoDiv.style.display = 'block';
+    
+    // Set the parent text
+    parentWordboxText.value = parentText;
+    
+    // Get the current child text
+    const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent || '';
+    
+    // Get translations from lexicon
+    const lexicon = Lexicon.getInstance();
+    const entry = lexicon.getEntry(parentText);
+    
+    if (entry) {
+        const translations = entry.getTranslations();
+        
+        // Add an option for each translation
+        translations.forEach(translation => {
+            const option = document.createElement('option');
+            option.value = translation;
+            option.textContent = translation;
+            childWordboxTranslation.appendChild(option);
+        });
+        
+        // If there are no translations, add the current child text as an option
+        if (translations.length === 0 && childText) {
+            const option = document.createElement('option');
+            option.value = childText;
+            option.textContent = childText;
+            childWordboxTranslation.appendChild(option);
+        }
+        
+        // Set the selected value to the current child text if it exists
+        if (childText) {
+            // Try to find the child text in the options
+            let found = false;
+            for (let i = 0; i < childWordboxTranslation.options.length; i++) {
+                if (childWordboxTranslation.options[i].value === childText) {
+                    childWordboxTranslation.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+            
+            // If not found, add it as a new option
+            if (!found) {
+                const option = document.createElement('option');
+                option.value = childText;
+                option.textContent = childText;
+                childWordboxTranslation.appendChild(option);
+                childWordboxTranslation.selectedIndex = childWordboxTranslation.options.length - 1;
+            }
+        }
+    } else {
+        // No lexicon entry, just add the current child text as an option
+        if (childText) {
+            const option = document.createElement('option');
+            option.value = childText;
+            option.textContent = childText;
+            childWordboxTranslation.appendChild(option);
+            childWordboxTranslation.selectedIndex = 0;
+        }
+    }
+    
+    // Add event listener to update the child box text when the dropdown selection changes
+    childWordboxTranslation.onchange = () => {
+        const selectedTranslation = childWordboxTranslation.value;
+        if (selectedTranslation && childBox) {
+            const rectElement = childBox.getElement().querySelector('.wordbox-rect');
+            if (rectElement) {
+                rectElement.textContent = selectedTranslation;
+                childBox.updateLexicon(selectedTranslation);
+            }
+        }
+    };
+}
+
+// Make updateLexiconInfo available globally
+(window as any).updateLexiconInfo = updateLexiconInfo;
