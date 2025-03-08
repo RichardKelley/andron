@@ -330,10 +330,10 @@ ipcMain.handle('export-pdf', async (event, documentData, defaultName) => {
 
                 // Add marginalia text
                 for (const note of page.marginalia) {
-                    // Calculate positions in points
-                    const x = pixelsToPoints(note.x + 8);
-                    const y = pixelsToPoints(note.y + 8);
-                    const width = pixelsToPoints(note.width - 16);
+                    // Calculate positions in points - use exact position without additional padding
+                    const x = pixelsToPoints(note.x);
+                    const y = pixelsToPoints(note.y);
+                    const width = pixelsToPoints(note.width);
                     
                     // Skip if no text content
                     if (!note.text || note.text.trim() === '') {
@@ -354,14 +354,17 @@ ipcMain.handle('export-pdf', async (event, documentData, defaultName) => {
                     let currentLine = '';
                     let yOffset = 0;
                     const lineHeight = doc.currentLineHeight();
+                    // Add 2pt padding to match UI
+                    const xWithPadding = x + 2;
+                    const yWithPadding = y + 2;
 
                     for (const word of words) {
                         const testLine = currentLine + (currentLine ? ' ' : '') + word;
                         const testWidth = doc.widthOfString(testLine);
 
-                        if (testWidth > width && currentLine) {
+                        if (testWidth > width - 4 && currentLine) {  // Subtract 4pt for left and right padding
                             // Draw the current line
-                            doc.text(currentLine, x, y + yOffset, {
+                            doc.text(currentLine, xWithPadding, yWithPadding + yOffset, {
                                 lineBreak: false,
                                 baseline: 'top'
                             });
@@ -374,7 +377,7 @@ ipcMain.handle('export-pdf', async (event, documentData, defaultName) => {
 
                     // Draw the last line
                     if (currentLine) {
-                        doc.text(currentLine, x, y + yOffset, {
+                        doc.text(currentLine, xWithPadding, yWithPadding + yOffset, {
                             lineBreak: false,
                             baseline: 'top'
                         });
@@ -652,9 +655,12 @@ ipcMain.handle('export-latex', async (event, documentData, defaultName) => {
                 for (const note of page.marginalia) {
                     if (!note.text || note.text.trim() === '') continue;
 
-                    const x = pixelsToPoints(note.x + 8);
-                    const y = pixelsToPoints(note.y + 8);
-                    const width = pixelsToPoints(note.width - 16);
+                    // Apply a horizontal correction to match UI positioning
+                    // The value -20 is determined empirically to match the UI positioning
+                    const x = pixelsToPoints(note.x - 20);
+                    // Apply a vertical offset to move the text down
+                    const y = pixelsToPoints(note.y + 20);
+                    const width = pixelsToPoints(note.width);
 
                     // Escape special LaTeX characters in marginalia text
                     const escapedText = note.text
@@ -663,14 +669,15 @@ ipcMain.handle('export-latex', async (event, documentData, defaultName) => {
                         .replace(/\[/g, '{[}')
                         .replace(/\]/g, '{]}');
 
-                    // Calculate the width of the text block (add a small padding)
-                    const textWidth = pixelsToPoints(note.width - 16);
+                    // Calculate the width of the text block (subtract padding)
+                    const textWidth = parseFloat(width) - 4;
 
                     // Add Greek language switch if the text is Greek
                     const langCommand = note.isGreekText ? '{\\selectlanguage{greek}' : '';
 
-                    latexContent += `\\begin{textblock*}{${textWidth}pt}(${x}pt, ${y}pt)
-  \\small{${langCommand}${escapedText}${langCommand ? '}' : ''}}
+                    // Use the same approach as wordboxes for consistency
+                    latexContent += `\\begin{textblock*}{${width}pt}(${x}pt, ${y}pt)
+  \\raisebox{0pt}[0pt][0pt]{\\small{\\hspace{2pt}\\parbox{${textWidth}pt}{${langCommand}${escapedText}${langCommand ? '}' : ''}}}}
 \\end{textblock*}\n\n`;
                 }
             }

@@ -43,13 +43,13 @@ export class Marginalia {
         container.style.width = '200px';
         container.style.height = '150px';
         container.style.backgroundColor = 'white';
-        container.style.padding = '8px';
+        container.style.padding = '2px';
         container.style.cursor = 'move';
         container.style.zIndex = '100';
 
         // Create textarea with explicit focus handling
         this.textArea.style.width = '100%';
-        this.textArea.style.height = 'calc(100% - 16px)';
+        this.textArea.style.height = 'calc(100% - 4px)';
         this.textArea.style.border = 'none';
         this.textArea.style.resize = 'none';
         this.textArea.style.outline = 'none';
