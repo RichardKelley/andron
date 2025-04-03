@@ -32,6 +32,7 @@ export class CanvasManager {
         this.pageObserver = null;
         this.setupPageObserver();
         this.setupLineEventListeners();
+        this.setupKeyboardEvents();
     }
 
     // Function to initialize margins based on current page dimensions
@@ -744,5 +745,53 @@ export class CanvasManager {
 
     setHistoryManager(historyManager: HistoryManager): void {
         this.historyManager = historyManager;
+    }
+    
+    // Setup keyboard event listeners for line operations
+    private setupKeyboardEvents(): void {
+        document.addEventListener('keydown', (e) => {
+            // Only handle key events when we're not in an input field
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+            
+            // Also check if there's any active input field in a wordbox
+            const activeInput = document.querySelector('.wordbox-rect input');
+            if (activeInput) {
+                return;
+            }
+            
+            // Handle 'x' key to delete selected line
+            if (e.key === 'x') {
+                // Find the selected line on any page
+                let selectedLine: TextLine | null = null;
+                let selectedPageNumber: number = 0;
+                
+                // Search through all pages and lines
+                for (const [pageNum, lines] of this.textLines.entries()) {
+                    for (const line of lines) {
+                        if (line.isSelected()) {
+                            selectedLine = line;
+                            selectedPageNumber = pageNum;
+                            break;
+                        }
+                    }
+                    if (selectedLine) break;
+                }
+                
+                // If a line is selected, delete it
+                if (selectedLine) {
+                    // Record the delete operation if we have a history manager
+                    if (this.historyManager) {
+                        this.historyManager.addOperation(
+                            this.historyManager.createDeleteLineOperation(selectedLine, selectedPageNumber)
+                        );
+                    }
+                    
+                    // Delete the line
+                    this.deleteLine(selectedLine);
+                }
+            }
+        });
     }
 } 
