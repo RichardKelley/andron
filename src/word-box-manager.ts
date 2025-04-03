@@ -122,8 +122,12 @@ export class WordBoxManager {
                 const newText = input.value.trim();
                 rectContainer.textContent = newText;
 
-                // Update lexicon with the new text
-                editedBox.updateLexicon(newText, originalText);
+                // Update lexicon with the new text, but only if not a Chapter, Section, or Headline box
+                if (!editedBox.getIsChapter() && !editedBox.getIsSection() && !editedBox.getIsHeadline()) {
+                    editedBox.updateLexicon(newText, originalText);
+                } else {
+                    console.log(`Skipping lexicon update for ${editedBox.getIsChapter() ? 'Chapter' : editedBox.getIsSection() ? 'Section' : 'Headline'} box text: "${newText}"`);
+                }
                 
                 // Get the page container and canvas
                 const pageContainer = editedBox.getElement().closest('.canvas-container') as HTMLElement;

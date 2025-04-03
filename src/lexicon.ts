@@ -283,9 +283,9 @@ export class Lexicon {
     }
 
     public addEntry(primaryText: string, translation?: string, pageNumber?: number): LexicalEntry | null {
-        // Skip if the text is "New Word" or empty
-        if (primaryText === 'New Word' || !primaryText.trim()) {
-            console.log('Skipping lexicon entry for "New Word" or empty string');
+        // Skip if the text is "New Word", "New Chapter", "New Section", or empty
+        if (primaryText === 'New Word' || primaryText === 'New Chapter' || primaryText === 'New Section' || !primaryText.trim()) {
+            console.log(`Skipping lexicon entry for "${primaryText}" or empty string`);
             return null;
         }
 

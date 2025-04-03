@@ -329,6 +329,12 @@ export class WordBox {
         if (newText === 'New Word' || !newText.trim()) {
             return;
         }
+        
+        // Skip for special box types: Chapter, Section, and Headline boxes
+        if (this.isChapter || this.isSection || this.isHeadline) {
+            console.log(`Skipping lexicon update for ${this.isChapter ? 'Chapter' : this.isSection ? 'Section' : 'Headline'} box: "${newText}"`);
+            return;
+        }
 
         const lexicon = Lexicon.getInstance();
         const pageContainer = this.element.closest('.canvas-container') as HTMLElement;
@@ -339,6 +345,7 @@ export class WordBox {
         // If this is a parent box
         if (!this.parentId) {
             // Add new word to lexicon with page number
+            console.log(`Adding to lexicon: "${newText}" (page ${pageNumber})`);
             lexicon.addEntry(newText, undefined, pageNumber);
 
             // If this box has a child box, add its text as a translation
@@ -347,6 +354,7 @@ export class WordBox {
                 if (childBox) {
                     const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent;
                     if (childText && childText !== 'New Word' && childText.trim()) {
+                        console.log(`Adding translation to lexicon: "${newText}" -> "${childText}"`);
                         lexicon.addEntry(newText, childText);
                     }
                 }
@@ -356,6 +364,7 @@ export class WordBox {
                 if (childBox) {
                     const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent;
                     if (childText && childText !== 'New Word' && childText.trim()) {
+                        console.log(`Adding translation to lexicon: "${newText}" -> "${childText}"`);
                         lexicon.addEntry(newText, childText);
                     }
                 }
@@ -366,8 +375,15 @@ export class WordBox {
             // Get the parent box's text and add this as a translation
             const parentBox = WordBox.fromElement(document.getElementById(this.parentId));
             if (parentBox) {
+                // Skip if the parent is a Chapter, Section, or Headline box
+                if (parentBox.getIsChapter() || parentBox.getIsSection() || parentBox.getIsHeadline()) {
+                    console.log(`Skipping lexicon update for child of ${parentBox.getIsChapter() ? 'Chapter' : parentBox.getIsSection() ? 'Section' : 'Headline'} box`);
+                    return;
+                }
+                
                 const parentText = parentBox.getElement().querySelector('.wordbox-rect')?.textContent;
                 if (parentText && parentText !== 'New Word' && parentText.trim()) {
+                    console.log(`Adding translation to lexicon from child: "${parentText}" -> "${newText}"`);
                     lexicon.addEntry(parentText, newText);
                 }
             }
