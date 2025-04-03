@@ -21,9 +21,14 @@ export class WordBoxManager {
     private lastNavigatedFromTop: boolean = false;
     private lastNavigatedFromBottom: boolean = false;
     private isEditOperationAdded: boolean = false;
+    private snapLineId: string | null = null;
+    private snapReleaseDistance: number = 50; // Pixels to move away to release snap
+    private snapThreshold: number = 40; // Increased from 25 to 40 pixels
 
     constructor() {
         this.setupEventListeners();
+        // Make this instance globally available for the language dropdown
+        (window as any).wordBoxManager = this;
     }
 
     setCanvasManager(canvasManager: CanvasManager) {
@@ -171,35 +176,84 @@ export class WordBoxManager {
                         // Create new line below the bottom-most box
                         const newLineY = maxBottomY + BODY_HEIGHT + 27; // Spacing of 27px
                         
-                        // Only create new line if it fits within bottom margin
+                        let newLine: TextLine | undefined;
+                        
+                        // Check if the new line fits within bottom margin
                         if (newLineY + DESCENDER_HEIGHT <= margins.bottom) {
-                            const newLine = this.canvasManager?.addTextLine(pageNumber, newLineY);
-                            if (newLine) {
-                                if (this.historyManager) {
+                            // Line fits on current page
+                            newLine = this.canvasManager?.addTextLine(pageNumber, newLineY);
+                            if (newLine && this.historyManager) {
+                                this.historyManager.addOperation(
+                                    this.historyManager.createAddLineOperation(newLine, pageNumber)
+                                );
+                            }
+                        } else {
+                            // Line doesn't fit - create a new page and add line at the top
+                            const { wrapper } = this.canvasManager?.createPage() || {};
+                            
+                            if (wrapper) {
+                                const newPageNumber = parseInt(wrapper.dataset.pageNumber || '1');
+                                
+                                // Add a new line near the top of the new page with some space
+                                const topMargin = margins.top + CAP_HEIGHT + 20; // Add 20px buffer
+                                newLine = this.canvasManager?.addTextLine(newPageNumber, topMargin);
+                                
+                                if (newLine && this.historyManager) {
                                     this.historyManager.addOperation(
-                                        this.historyManager.createAddLineOperation(newLine, pageNumber)
+                                        this.historyManager.createAddLineOperation(newLine, newPageNumber)
                                     );
                                 }
+                            }
+                        }
+                        
+                        if (newLine) {
+                            // Remove from current line
+                            if (currentLine) {
+                                currentLine.removeWordBox(editedBox);
+                            }
 
-                                // Remove from current line
-                                if (currentLine) {
-                                    currentLine.removeWordBox(editedBox);
+                            // If the new line is on a different page, move the WordBox to that page
+                            const newLinePageNumber = newLine.getPageNumber();
+                            if (newLinePageNumber !== pageNumber) {
+                                // Find the new page container
+                                const newPageContainer = document.querySelector(`.canvas-container[data-page-number="${newLinePageNumber}"]`) as HTMLElement;
+                                if (newPageContainer) {
+                                    // Move the element to the new page
+                                    pageContainer.removeChild(editedBox.getElement());
+                                    newPageContainer.appendChild(editedBox.getElement());
                                 }
+                            }
 
-                                // Position at start of new line
-                                editedBox.setX(margins.left + 3);
+                            // Position at start of new line
+                            editedBox.setX(margins.left + 3);
 
-                                // Calculate snap position for the new line
-                                const lineY = newLine.getYPosition();
-                                const lineScreenY = lineY / scaleY;
-                                const lineCenter = lineScreenY - CAP_HEIGHT;
-                                
-                                const editedBoxRect = editedBox.getElement().getBoundingClientRect();
-                                const snapY = lineCenter - (editedBoxRect.height / 2) + ASCENDER_HEIGHT - 16;
-                                editedBox.setY(snapY);
+                            // Get the correct canvas for the line's page
+                            const linePageNumber = newLine.getPageNumber();
+                            const targetCanvas = document.querySelector(`.canvas-container[data-page-number="${linePageNumber}"] canvas`) as HTMLCanvasElement;
+                            const targetRect = targetCanvas.getBoundingClientRect();
+                            const targetContainerRect = targetCanvas.parentElement?.getBoundingClientRect();
+                            const targetScaleY = targetCanvas.height / targetRect.height;
 
-                                // Add to new line
-                                newLine.addWordBox(editedBox);
+                            // Calculate snap position for the new line
+                            const lineY = newLine.getYPosition();
+                            const lineScreenY = lineY / targetScaleY;
+                            const lineCenter = lineScreenY - CAP_HEIGHT;
+                            
+                            const editedBoxRect = editedBox.getElement().getBoundingClientRect();
+                            const snapY = lineCenter - (editedBoxRect.height / 2) + ASCENDER_HEIGHT - 16;
+                            editedBox.setY(snapY);
+
+                            // Add to new line
+                            newLine.addWordBox(editedBox);
+                            
+                            // Auto-scroll to the new page if a new page was created
+                            if (newLine.getPageNumber() !== pageNumber) {
+                                const newPageEl = document.querySelector(`.canvas-container[data-page-number="${newLine.getPageNumber()}"]`);
+                                if (newPageEl) {
+                                    setTimeout(() => {
+                                        newPageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }, 50);
+                                }
                             }
                         }
                     }
@@ -342,7 +396,7 @@ export class WordBoxManager {
                             // Create new line below the bottom-most box
                             const newLineY = maxBottomY + BODY_HEIGHT + 27; // Spacing of 27px
                             
-                            // Only create new line if it fits within bottom margin
+                            // Check if the new line would fit within bottom margin
                             if (newLineY + DESCENDER_HEIGHT <= margins.bottom) {
                                 const newLine = this.canvasManager?.addTextLine(pageNumber, newLineY);
                                 if (newLine) {
@@ -353,6 +407,34 @@ export class WordBoxManager {
                                     }
                                     closestLine = newLine;
                                 }
+                            } else {
+                                // Line doesn't fit - create a new page and add a line at the top
+                                const { wrapper } = this.canvasManager?.createPage() || {};
+                                
+                                if (wrapper) {
+                                    const newPageNumber = parseInt(wrapper.dataset.pageNumber || '1');
+                                    
+                                    // Add a new line near the top of the new page with some space
+                                    const topMargin = margins.top + CAP_HEIGHT + 20; // Add 20px buffer
+                                    const newLine = this.canvasManager?.addTextLine(newPageNumber, topMargin);
+                                    
+                                    if (newLine) {
+                                        if (this.historyManager) {
+                                            this.historyManager.addOperation(
+                                                this.historyManager.createAddLineOperation(newLine, newPageNumber)
+                                            );
+                                        }
+                                        closestLine = newLine;
+                                        
+                                        // Auto-scroll to the new page
+                                        const newPageEl = document.querySelector(`.canvas-container[data-page-number="${newPageNumber}"]`);
+                                        if (newPageEl) {
+                                            setTimeout(() => {
+                                                newPageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                            }, 50);
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -360,19 +442,51 @@ export class WordBoxManager {
                         newLeft = margins.left + 3;
                     }
 
-                    // Create new box
-                    const newBox = new WordBox(newLeft, topmostY);
-                    pageContainer.appendChild(newBox.getElement());
+                    // If closestLine is on a different page than the current page, we need
+                    // to find the correct page container for the new WordBox
+                    let targetContainer = pageContainer;
+                    if (closestLine) {
+                        const linePageNumber = closestLine.getPageNumber();
+                        if (linePageNumber !== pageNumber) {
+                            const newPageContainer = document.querySelector(`.canvas-container[data-page-number="${linePageNumber}"]`) as HTMLElement;
+                            if (newPageContainer) {
+                                targetContainer = newPageContainer;
+                            }
+                        }
+                    }
+
+                    // Create new box with appropriate position
+                    // If we're on a new page, calculate a proper initial Y position
+                    let initialY = topmostY;
+                    if (closestLine && closestLine.getPageNumber() !== pageNumber) {
+                        // For a new page, set the Y position near the top where the new line will be
+                        const lineY = closestLine.getYPosition();
+                        const canvas = targetContainer.querySelector('canvas') as HTMLCanvasElement;
+                        if (canvas) {
+                            const canvasRect = canvas.getBoundingClientRect();
+                            const scaleY = canvas.height / canvasRect.height;
+                            initialY = (lineY / scaleY) - CAP_HEIGHT;
+                        }
+                    }
+                    
+                    const newBox = new WordBox(newLeft, initialY);
+                    targetContainer.appendChild(newBox.getElement());
 
                     // Record add operation
                     if (this.historyManager) {
                         this.historyManager.addOperation(
-                            this.historyManager.createAddBoxOperation(newBox, pageContainer)
+                            this.historyManager.createAddBoxOperation(newBox, targetContainer)
                         );
                     }
 
                     // If we have a line to snap to, do it
                     if (closestLine) {
+                        // Get the canvas for the correct page
+                        const canvas = targetContainer.querySelector('canvas') as HTMLCanvasElement;
+                        const canvasRect = canvas.getBoundingClientRect();
+                        const containerRect = targetContainer.getBoundingClientRect();
+                        const scaleY = canvas.height / canvasRect.height;
+                        
                         const lineY = closestLine.getYPosition();
                         const lineScreenY = lineY / scaleY;
                         const lineCenter = lineScreenY - CAP_HEIGHT;
@@ -827,18 +941,6 @@ export class WordBoxManager {
             });
             this.currentlyHighlightedBox = null;
             this.currentlyHighlightedCircle = null;
-        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== 'x' && e.key !== 'c') {
-            // Edit functionality when typing a character (but not 'x' or 'c')
-            e.preventDefault();
-            const rectContainer = this.currentlyHighlightedBox!.querySelector('.wordbox-rect') as HTMLElement;
-            if (rectContainer) {
-                const measureSpan = document.createElement('span');
-                measureSpan.style.visibility = 'hidden';
-                measureSpan.style.position = 'absolute';
-                measureSpan.style.whiteSpace = 'pre';
-                document.body.appendChild(measureSpan);
-                this.createAndSetupInput(rectContainer, this.currentlyHighlightedBox!, measureSpan, rectContainer.textContent || '');
-            }
         } else if (e.key === 'c') {
             // Create child node functionality
             e.preventDefault();
@@ -1007,6 +1109,18 @@ export class WordBoxManager {
                 measureSpan.style.whiteSpace = 'pre';
                 document.body.appendChild(measureSpan);
                 this.createAndSetupInput(rectContainer, childBox.getElement(), measureSpan, initialText);
+            }
+        } else if (e.key === 'e') {
+            // Edit functionality specifically for the 'e' key
+            e.preventDefault();
+            const rectContainer = this.currentlyHighlightedBox!.querySelector('.wordbox-rect') as HTMLElement;
+            if (rectContainer) {
+                const measureSpan = document.createElement('span');
+                measureSpan.style.visibility = 'hidden';
+                measureSpan.style.position = 'absolute';
+                measureSpan.style.whiteSpace = 'pre';
+                document.body.appendChild(measureSpan);
+                this.createAndSetupInput(rectContainer, this.currentlyHighlightedBox!, measureSpan, rectContainer.textContent || '');
             }
         }
     }
@@ -1250,7 +1364,7 @@ export class WordBoxManager {
             if (parentBoxEl) {
                 const parentBox = WordBox.fromElement(parentBoxEl);
                 if (parentBox) {
-                    // Clear previous box selections
+                    // Clear previous box selections (visual only, don't modify line connections)
                     WordBox.instances.forEach(box => {
                         box.setSelected(false);
                         box.setIndividuallySelected(false);
@@ -1276,7 +1390,7 @@ export class WordBoxManager {
 
         const clickedWordBox = target.closest('[id^="wordbox-"]');
         
-        // First, clear all selection states on all word boxes
+        // Clear visual selection states WITHOUT removing line connections
         WordBox.instances.forEach(box => {
             box.setSelected(false);
             box.setIndividuallySelected(false);
@@ -1293,8 +1407,7 @@ export class WordBoxManager {
         if (clickedWordBox) {
             const wordBox = WordBox.fromElement(clickedWordBox as HTMLElement);
             if (wordBox) {
-                
-                // Get all connected boxes and select them as a group
+                // Get all connected boxes and select them as a group (just visual selection)
                 const connectedBoxes = this.getAllConnectedBoxes(wordBox);
                 connectedBoxes.forEach(box => box.setSelected(true));
                 
@@ -1356,27 +1469,22 @@ export class WordBoxManager {
             // Store the initial states in the dragged box for use in handleMouseUp
             (this.draggedWordBox as any).initialDragStates = initialStates;
 
-            // Clear all selection states
+            // Clear visual selection states only
             WordBox.instances.forEach(box => {
                 box.setSelected(false);
                 box.setIndividuallySelected(false);
             });
             
-            // Select all connected boxes as a group
+            // Select all connected boxes as a group (visual selection only)
             connectedBoxes.forEach(box => box.setSelected(true));
             
             // Set individual selection on the specifically clicked box
             wordBox.setIndividuallySelected(true);
             
-            // If the word box is in a line, remove it and all its connected boxes from the line
-            if (initialLineId) {
-                const pageNumber = parseInt(initialLineId.split('-')[1]);
-                const lines = this.getTextLines(pageNumber) || [];
-                const currentLine = lines.find(line => line.getId() === initialLineId);
-                if (currentLine) {
-                    currentLine.removeWordBox(this.draggedWordBox);
-                }
-            }
+            // Check if we're actually dragging the WordBox itself (not just clicking to select)
+            // We'll keep track of this and only remove from the line if the user starts moving the mouse
+            (this.draggedWordBox as any).potentialDrag = true;
+            (this.draggedWordBox as any).initialLineId = initialLineId;
             
             // Set cursor style for all connected boxes
             connectedBoxes.forEach(box => box.getElement().style.cursor = 'grabbing');
@@ -1388,6 +1496,28 @@ export class WordBoxManager {
         if (this.draggedWordBox && this.globalIsDragging) {
             const deltaX = e.clientX - this.dragStartX;
             const deltaY = e.clientY - this.dragStartY;
+            
+            // Check if user actually started dragging the WordBox
+            // (as opposed to just clicking it for selection)
+            if ((this.draggedWordBox as any).potentialDrag) {
+                // If the user has moved the mouse more than a threshold, consider it a true drag
+                const dragThreshold = 3; // pixels
+                if (Math.abs(deltaX) > dragThreshold || Math.abs(deltaY) > dragThreshold) {
+                    // Only remove from the line if we're actively dragging the WordBox
+                    const initialLineId = (this.draggedWordBox as any).initialLineId;
+                    if (initialLineId) {
+                        const pageNumber = parseInt(initialLineId.split('-')[1]);
+                        const lines = this.getTextLines(pageNumber) || [];
+                        const currentLine = lines.find(line => line.getId() === initialLineId);
+                        if (currentLine) {
+                            currentLine.removeWordBox(this.draggedWordBox);
+                        }
+                    }
+                    
+                    // Mark that we've processed the potential drag
+                    (this.draggedWordBox as any).potentialDrag = false;
+                }
+            }
             
             // Get all connected boxes
             const connectedBoxes = this.getAllConnectedBoxes(this.draggedWordBox);
@@ -1436,9 +1566,16 @@ export class WordBoxManager {
             // Find the page the word box is currently over
             let targetPage: Element | null = null;
             const pages = document.querySelectorAll('.canvas-container');
+            
+            // Get the WordBox position to also check where the box is, not just the cursor
+            const wordBoxEl = this.draggedWordBox.getElement();
+            const wordBoxRect = wordBoxEl.getBoundingClientRect();
+            const wordBoxCenterY = wordBoxRect.top + (wordBoxRect.height / 2);
+            
             pages.forEach(page => {
                 const rect = page.getBoundingClientRect();
-                if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                if ((e.clientY >= rect.top && e.clientY <= rect.bottom) ||
+                    (wordBoxCenterY >= rect.top && wordBoxCenterY <= rect.bottom)) {
                     targetPage = page;
                 }
             });
@@ -1457,28 +1594,69 @@ export class WordBoxManager {
                     // Get all lines on this page
                     const lines = (this.getTextLines(pageNumber) || []) as TextLine[];
                     
-                    // Find the closest line
+                    // Find the closest line, with improved snap stickiness
                     let minDistance = Infinity;
                     this.closestLine = null;
                     
                     const wordboxRect = element.getBoundingClientRect();
                     const wordboxCenter = wordboxRect.top + (wordboxRect.height / 2) - containerRect.top;
                     
-                    for (const line of lines) {
-                        const lineY = line.getYPosition();
-                        const lineScreenY = lineY / scaleY;
-                        const lineCenter = lineScreenY - CAP_HEIGHT;
+                    // If we're already snapped to a line, check if we should stay snapped
+                    if (this.snapLineId) {
+                        const snapLine = lines.find(line => line.getId() === this.snapLineId);
+                        if (snapLine) {
+                            const lineY = snapLine.getYPosition();
+                            const lineScreenY = lineY / scaleY;
+                            const lineCenter = lineScreenY - CAP_HEIGHT;
+                            const distance = Math.abs(wordboxCenter - lineCenter);
+                            
+                            if (distance <= this.snapReleaseDistance) {
+                                // Stay snapped to current line
+                                this.closestLine = snapLine;
+                                // Add visual feedback
+                                element.classList.add('near-line');
+                                // Skip looking for other lines
+                                minDistance = distance;
+                            } else {
+                                // Release snap if moved too far
+                                this.snapLineId = null;
+                                element.classList.remove('near-line');
+                            }
+                        } else {
+                            // Line no longer exists
+                            this.snapLineId = null;
+                            element.classList.remove('near-line');
+                        }
+                    }
+                    
+                    // If not already snapped to a line, search for closest line
+                    if (!this.snapLineId) {
+                        for (const line of lines) {
+                            const lineY = line.getYPosition();
+                            const lineScreenY = lineY / scaleY;
+                            const lineCenter = lineScreenY - CAP_HEIGHT;
+                            
+                            const distance = Math.abs(wordboxCenter - lineCenter);
+                            
+                            if (distance < minDistance && distance < this.snapThreshold) {
+                                minDistance = distance;
+                                this.closestLine = line;
+                                // Add visual feedback when close to a line
+                                element.classList.add('near-line');
+                            }
+                        }
                         
-                        const distance = Math.abs(wordboxCenter - lineCenter);
-                        
-                        if (distance < minDistance && distance < 25) {
-                            minDistance = distance;
-                            this.closestLine = line;
+                        // If no line is close enough, remove visual feedback
+                        if (!this.closestLine) {
+                            element.classList.remove('near-line');
                         }
                     }
 
                     // If we're near a line, snap to it
                     if (this.closestLine) {
+                        // Record the line we're snapped to
+                        this.snapLineId = this.closestLine.getId();
+                        
                         const lineY = this.closestLine.getYPosition();
                         const lineScreenY = lineY / scaleY;
                         const lineCenter = lineScreenY - CAP_HEIGHT;
@@ -1487,11 +1665,17 @@ export class WordBoxManager {
                         const snapY = lineCenter - (wordboxRect.height / 2) + ASCENDER_HEIGHT - 16;
                         element.style.top = `${snapY}px`;
 
+                        // Set preventSnap to false to ensure position update works
+                        this.closestLine.setPreventSnap(false);
+                        
                         // Add the main box and all its connected boxes to the line
                         this.closestLine.addWordBox(this.draggedWordBox);
                         
                         // Update positions of all child boxes after snapping
                         this.updateChildBoxPosition(this.draggedWordBox);
+                        
+                        // Add visual feedback
+                        element.classList.add('near-line');
                     }
                 }
             }
@@ -1513,31 +1697,35 @@ export class WordBoxManager {
             // Get the initial states that were stored during mousedown
             const initialStates = (this.draggedWordBox as any).initialDragStates as BoxState[];
             
-            // Record move operation if position changed
-            if (this.historyManager && initialStates) {
-                // Check if any box moved from its initial position
-                const anyBoxMoved = initialStates.some((state: BoxState) => {
-                    const box = state.instance;
-                    const element = box.getElement();
-                    const currentX = parseInt(element.style.left);
-                    const currentY = parseInt(element.style.top);
-                    const currentLineId = box.getLineId();
-                    
-                    return currentX !== state.x || 
-                           currentY !== state.y || 
-                           currentLineId !== state.lineId;
-                });
+            // If this was just a click without dragging (potentialDrag is still true),
+            // we don't need to record any history operations
+            if (!(this.draggedWordBox as any).potentialDrag) {
+                // Record move operation if position changed
+                if (this.historyManager && initialStates) {
+                    // Check if any box moved from its initial position
+                    const anyBoxMoved = initialStates.some((state: BoxState) => {
+                        const box = state.instance;
+                        const element = box.getElement();
+                        const currentX = parseInt(element.style.left);
+                        const currentY = parseInt(element.style.top);
+                        const currentLineId = box.getLineId();
+                        
+                        return currentX !== state.x || 
+                               currentY !== state.y || 
+                               currentLineId !== state.lineId;
+                    });
 
-                if (anyBoxMoved) {
-                    this.historyManager.addOperation(
-                        this.historyManager.createMoveBoxOperation(
-                            this.draggedWordBox,
-                            this.initialWordBoxX,
-                            this.initialWordBoxY,
-                            parseInt(element.style.left),
-                            parseInt(element.style.top)
-                        )
-                    );
+                    if (anyBoxMoved) {
+                        this.historyManager.addOperation(
+                            this.historyManager.createMoveBoxOperation(
+                                this.draggedWordBox,
+                                this.initialWordBoxX,
+                                this.initialWordBoxY,
+                                parseInt(element.style.left),
+                                parseInt(element.style.top)
+                            )
+                        );
+                    }
                 }
             }
 
@@ -1552,9 +1740,11 @@ export class WordBoxManager {
                 }
             });
             
+            // Clean up our tracking properties
             this.draggedWordBox = null;
             this.globalIsDragging = false;
             this.closestLine = null;
+            this.snapLineId = null;
         }
     }
 
@@ -1758,4 +1948,105 @@ export class WordBoxManager {
         // Check for and snap any unattached boxes
         this.snapUnattachedBoxesToLines(pageContainer);
     }
-} 
+    
+    /**
+     * Public method for creating a child box from a parent WordBox
+     * Used by the language dropdown to create a new child when translating a parent box
+     */
+    public createChildBox(parentBox: WordBox, direction: string = 'bottom', initialText: string = 'New Word'): WordBox | null {
+        if (!parentBox) return null;
+        
+        // Check if this box has available space for a child in the specified direction
+        const isTopDirection = direction === 'top';
+        const hasAvailableSpace = isTopDirection ? 
+            !parentBox.getChildBoxIdTop() : 
+            !parentBox.getChildBoxIdBottom();
+            
+        if (!hasAvailableSpace) {
+            console.warn(`Parent box already has a ${direction} child`);
+            return null;
+        }
+        
+        // Calculate position for the child box
+        const parentEl = parentBox.getElement();
+        const parentRect = parentEl.getBoundingClientRect();
+        const pageContainer = parentEl.closest('.canvas-container') as HTMLElement;
+        if (!pageContainer) return null;
+        
+        const canvas = pageContainer.querySelector('canvas');
+        if (!canvas) return null;
+        
+        const canvasRect = canvas.getBoundingClientRect();
+        const scaleY = canvas.height / canvasRect.height;
+        
+        // Position the child box centered with parent, using current left position
+        const parentLeft = parseFloat(parentEl.style.left);
+        const x = parentLeft; // Use parent's left position directly
+        
+        const y = isTopDirection ? 
+            (parentRect.top - canvasRect.top - CAP_HEIGHT - WordBox.verticalSpacing) * scaleY : // Use dynamic spacing
+            (parentRect.bottom - canvasRect.top + WordBox.verticalSpacing) * scaleY; // Use dynamic spacing
+        
+        // Create the child box
+        const childBox = new WordBox(x, y, initialText, '', isTopDirection, !isTopDirection);
+        childBox.setParentId(parentBox.getId());
+        
+        // Update the parent's child references
+        if (isTopDirection) {
+            parentBox.setChildBoxIdTop(childBox.getId());
+        } else {
+            parentBox.setChildBoxIdBottom(childBox.getId());
+        }
+        
+        // Add the child box to the page
+        pageContainer.appendChild(childBox.getElement());
+        
+        // Record add operation for the child box
+        if (this.historyManager) {
+            this.historyManager.addOperation(
+                this.historyManager.createAddBoxOperation(childBox, pageContainer)
+            );
+        }
+        
+        // Remove the circle that would be in this position
+        const circle = isTopDirection ? 
+            parentEl.querySelector('.wordbox-circle-top') : 
+            parentEl.querySelector('.wordbox-circle-bottom');
+            
+        if (circle) {
+            circle.remove();
+        }
+        
+        // Update child position to ensure proper alignment
+        this.updateChildBoxPosition(parentBox);
+        
+        // Check if parent is near a line and snap
+        const pageNumber = parseInt(pageContainer.dataset.pageNumber || '1');
+        const lines = this.getTextLines(pageNumber) || [];
+        
+        // Find the closest line to the parent
+        const parentCenter = parentRect.top + (parentRect.height / 2) - canvasRect.top;
+        let minDistance = Infinity;
+        let closestLine: TextLine | null = null;
+        
+        for (const line of lines) {
+            const lineY = line.getYPosition();
+            const lineScreenY = lineY / scaleY;
+            const lineCenter = lineScreenY - CAP_HEIGHT;
+            
+            const distance = Math.abs(parentCenter - lineCenter);
+            
+            if (distance < minDistance && distance < 25) {
+                minDistance = distance;
+                closestLine = line;
+            }
+        }
+        
+        // If parent is near a line, snap it and all descendants
+        if (closestLine) {
+            closestLine.addWordBox(parentBox);
+        }
+        
+        return childBox;
+    }
+}

@@ -1206,16 +1206,16 @@ function initRightSidebar() {
     languagesContent.innerHTML = `
         <div class="sidebar-title">Languages</div>
         <div class="param-group">
-            <label for="primary-language">Primary Language (Parent Boxes):</label>
+            <label for="primary-language">Primary Script (Parent Boxes):</label>
             <select id="primary-language" class="param-input">
-                <option value="english">English</option>
+                <option value="english">Latin</option>
                 <option value="ancient-greek">Ancient Greek (with polytonic diacritics)</option>
             </select>
         </div>
         <div class="param-group">
-            <label for="secondary-language">Secondary Language (Child Boxes):</label>
+            <label for="secondary-language">Secondary Script (Child Boxes):</label>
             <select id="secondary-language" class="param-input">
-                <option value="english">English</option>
+                <option value="english">Latin</option>
                 <option value="ancient-greek">Ancient Greek (with polytonic diacritics)</option>
             </select>
         </div>
@@ -2542,10 +2542,23 @@ function updateLexiconInfo(selectedWordBox: WordBox | null) {
         }
     }
     
-    // If we don't have both a parent and child box, hide the lexicon info
-    if (!parentBox || !parentText || !childBox) {
+    // If we don't have a parent box or parent text, hide the lexicon info
+    if (!parentBox || !parentText) {
         lexiconInfoDiv.style.display = 'none';
         return;
+    }
+    
+    // If we clicked on a parent box but there's no child box, check if it has any child boxes to use
+    if (!childBox && parentBox === selectedWordBox) {
+        // Try to use any available child
+        const childIdTop = parentBox.getChildBoxIdTop();
+        const childIdBottom = parentBox.getChildBoxIdBottom();
+        
+        if (childIdTop) {
+            childBox = WordBox.fromElement(document.getElementById(childIdTop));
+        } else if (childIdBottom) {
+            childBox = WordBox.fromElement(document.getElementById(childIdBottom));
+        }
     }
     
     // Show the lexicon info
@@ -2554,8 +2567,8 @@ function updateLexiconInfo(selectedWordBox: WordBox | null) {
     // Set the parent text
     parentWordboxText.value = parentText;
     
-    // Get the current child text
-    const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent || '';
+    // Get the current child text if there's a child box
+    const childText = childBox?.getElement().querySelector('.wordbox-rect')?.textContent || '';
     
     // Get translations from lexicon
     const lexicon = Lexicon.getInstance();
@@ -2572,11 +2585,26 @@ function updateLexiconInfo(selectedWordBox: WordBox | null) {
             childWordboxTranslation.appendChild(option);
         });
         
-        // If there are no translations, add the current child text as an option
-        if (translations.length === 0 && childText) {
+        // If there are translations but no child box, add a placeholder option
+        if (!childBox && translations.length > 0) {
+            // The dropdown will be active with translations but will create a child when selected
+            // Set the first translation as selected
+            if (childWordboxTranslation.options.length > 0) {
+                childWordboxTranslation.selectedIndex = 0;
+            }
+        }
+        // If there are no translations and we have a child, add the current child text as an option
+        else if (translations.length === 0 && childText) {
             const option = document.createElement('option');
             option.value = childText;
             option.textContent = childText;
+            childWordboxTranslation.appendChild(option);
+        }
+        // If there are no translations and no child, add a placeholder option
+        else if (translations.length === 0 && !childBox) {
+            const option = document.createElement('option');
+            option.value = "New Translation";
+            option.textContent = "New Translation";
             childWordboxTranslation.appendChild(option);
         }
         
@@ -2602,24 +2630,74 @@ function updateLexiconInfo(selectedWordBox: WordBox | null) {
             }
         }
     } else {
-        // No lexicon entry, just add the current child text as an option
+        // No lexicon entry
         if (childText) {
+            // Just add the current child text as an option
             const option = document.createElement('option');
             option.value = childText;
             option.textContent = childText;
             childWordboxTranslation.appendChild(option);
             childWordboxTranslation.selectedIndex = 0;
+        } else {
+            // No lexicon entry and no child, add placeholder
+            const option = document.createElement('option');
+            option.value = "New Translation";
+            option.textContent = "New Translation";
+            childWordboxTranslation.appendChild(option);
         }
     }
     
     // Add event listener to update the child box text when the dropdown selection changes
     childWordboxTranslation.onchange = () => {
         const selectedTranslation = childWordboxTranslation.value;
-        if (selectedTranslation && childBox) {
-            const rectElement = childBox.getElement().querySelector('.wordbox-rect');
-            if (rectElement) {
-                rectElement.textContent = selectedTranslation;
-                childBox.updateLexicon(selectedTranslation);
+        if (selectedTranslation) {
+            if (childBox) {
+                // Update existing child box
+                const rectElement = childBox.getElement().querySelector('.wordbox-rect');
+                if (rectElement) {
+                    rectElement.textContent = selectedTranslation;
+                    childBox.updateLexicon(selectedTranslation);
+                }
+            } else if (parentBox) {
+                // Create a new child box with the selected translation
+                const wordBoxManager = (window as any).wordBoxManager;
+                if (wordBoxManager) {
+                    // Create a bottom child by default if there's no child box yet
+                    const direction = 'bottom';
+                    const parentElement = parentBox.getElement();
+                    
+                    // Simulate a key press event on the parent box
+                    wordBoxManager.createChildBox(parentBox, direction, selectedTranslation);
+                    
+                    // Select the newly created child
+                    setTimeout(() => {
+                        // Create a new dropdown option for the selected translation
+                        const option = document.createElement('option');
+                        option.value = selectedTranslation;
+                        option.textContent = selectedTranslation;
+                        childWordboxTranslation.appendChild(option);
+                        
+                        // Set the selected value
+                        for (let i = 0; i < childWordboxTranslation.options.length; i++) {
+                            if (childWordboxTranslation.options[i].value === selectedTranslation) {
+                                childWordboxTranslation.selectedIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        // Update the lexicon
+                        if (parentBox) {
+                            // Check for child boxes again after creation
+                            const childIdBottom = parentBox.getChildBoxIdBottom();
+                            if (childIdBottom) {
+                                const bottomChild = WordBox.fromElement(document.getElementById(childIdBottom));
+                                if (bottomChild) {
+                                    bottomChild.updateLexicon(selectedTranslation);
+                                }
+                            }
+                        }
+                    }, 100);
+                }
             }
         }
     };
