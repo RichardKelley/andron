@@ -343,6 +343,8 @@ body {
     z-index: 12; /* Above regular selected boxes */
 }
 
+/* No visual feedback needed for shift+drag */
+
 /* Cursor styles for selected boxes */
 .wordbox.selected {
     cursor: move;

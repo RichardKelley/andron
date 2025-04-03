@@ -1550,14 +1550,22 @@ export class WordBoxManager {
                 // If the user has moved the mouse more than a threshold, consider it a true drag
                 const dragThreshold = 3; // pixels
                 if (Math.abs(deltaX) > dragThreshold || Math.abs(deltaY) > dragThreshold) {
-                    // Only remove from the line if we're actively dragging the WordBox
+                    // Store the initial line ID for later tracking
+                    // But don't remove it from the line yet - we'll decide that based on
+                    // vertical movement later
                     const initialLineId = (this.draggedWordBox as any).initialLineId;
+                    
+                    // Store a reference to the line
                     if (initialLineId) {
                         const pageNumber = parseInt(initialLineId.split('-')[1]);
                         const lines = this.getTextLines(pageNumber) || [];
                         const currentLine = lines.find(line => line.getId() === initialLineId);
                         if (currentLine) {
-                            currentLine.removeWordBox(this.draggedWordBox);
+                            // Save a reference to the line, but don't remove yet
+                            (this.draggedWordBox as any).initialLine = currentLine;
+                            
+                            // Store initial Y position of the line
+                            (this.draggedWordBox as any).initialLineY = currentLine.getYPosition();
                         }
                     }
                     
@@ -1575,6 +1583,25 @@ export class WordBoxManager {
             // Calculate new position
             const newX = this.initialWordBoxX + deltaX;
             let newY = this.initialWordBoxY + deltaY;
+            
+            // Check if we need to detach from the line based on vertical movement
+            const initialLine = (this.draggedWordBox as any).initialLine;
+            if (initialLine) {
+                const initialLineY = (this.draggedWordBox as any).initialLineY;
+                if (initialLineY) {
+                    // Calculate how far vertically the box has moved from its line
+                    const verticalDistanceFromLine = Math.abs(newY - initialLineY + CAP_HEIGHT);
+                    const detachThreshold = 30; // Pixels to move vertically before detaching
+                    
+                    if (verticalDistanceFromLine > detachThreshold) {
+                        // Only detach if we've moved vertically beyond the threshold
+                        initialLine.removeWordBox(this.draggedWordBox);
+                        
+                        // Clear the line reference so we don't check again
+                        (this.draggedWordBox as any).initialLine = null;
+                    }
+                }
+            }
 
             // Get page container and margins
             const pageContainer = element.closest('.canvas-container') as HTMLElement;
@@ -1614,6 +1641,87 @@ export class WordBoxManager {
                 const clampedX = Math.max(minX, Math.min(maxX, newX));
                 const clampedY = Math.max(minY, Math.min(maxY, newY));
                 
+                // When Shift is pressed, also check for collisions with other WordBoxes
+                if (e.shiftKey) {
+                    // Add debug logs
+                    console.log("Checking for collisions...");
+                    console.log(`Box dimensions: ${boxWidth} x ${boxHeight}`);
+                    
+                    // Get all connected boxes (parent and all children)
+                    const connectedBoxes = this.getAllConnectedBoxes(this.draggedWordBox);
+                    console.log(`Found ${connectedBoxes.length} connected boxes`);
+                    
+                    // Save original positions of all connected boxes
+                    const originalPositions = connectedBoxes.map(box => {
+                        const el = box.getElement();
+                        return {
+                            box,
+                            left: parseFloat(el.style.left),
+                            top: parseFloat(el.style.top)
+                        };
+                    });
+                    
+                    // Calculate how much to move the main box
+                    const moveX = clampedX - parseFloat(element.style.left);
+                    const moveY = clampedY - parseFloat(element.style.top);
+                    
+                    // Temporarily move all connected boxes by the same amount
+                    originalPositions.forEach(item => {
+                        const el = item.box.getElement();
+                        el.style.left = `${item.left + moveX}px`;
+                        el.style.top = `${item.top + moveY}px`;
+                    });
+                    
+                    // Calculate a combined bounding rect for all connected boxes
+                    let combinedRect: DOMRect | null = null;
+                    
+                    connectedBoxes.forEach(box => {
+                        const boxRect = box.getElement().getBoundingClientRect();
+                        
+                        if (!combinedRect) {
+                            combinedRect = boxRect;
+                        } else {
+                            // Expand the combined rectangle to include this box
+                            const left = Math.min(combinedRect.left, boxRect.left);
+                            const top = Math.min(combinedRect.top, boxRect.top);
+                            const right = Math.max(combinedRect.right, boxRect.right);
+                            const bottom = Math.max(combinedRect.bottom, boxRect.bottom);
+                            
+                            combinedRect = new DOMRect(
+                                left, 
+                                top, 
+                                right - left, 
+                                bottom - top
+                            );
+                        }
+                    });
+                    
+                    const testRect = combinedRect || element.getBoundingClientRect();
+                    
+                    // Move all boxes back to their original positions
+                    originalPositions.forEach(item => {
+                        const el = item.box.getElement();
+                        el.style.left = `${item.left}px`;
+                        el.style.top = `${item.top}px`;
+                    });
+                    
+                    // No debug visualization needed
+                    
+                    // Force a reflow to ensure the elements are rendered at their original positions
+                    void element.offsetWidth;
+                    
+                    // Check if there would be a collision
+                    const collidingBox = this.findCollidingWordBox(this.draggedWordBox, pageContainer, testRect);
+                    
+                    if (collidingBox) {
+                        // If there's a collision, don't update the position (prevent movement)
+                        // We'll keep the last valid position
+                        return;
+                    }
+                    
+                    // No visual feedback
+                }
+                
                 // Update position with clamped values
                 this.draggedWordBox.setX(clampedX);
                 this.draggedWordBox.setY(clampedY);
@@ -1621,6 +1729,7 @@ export class WordBoxManager {
                 // Normal update without clamping
                 this.draggedWordBox.setX(newX);
                 this.draggedWordBox.setY(newY);
+                element.classList.remove('shift-constrained');
             }
             
             // Update positions of all child boxes, passing the parent's left position and shift key state
@@ -1811,13 +1920,19 @@ export class WordBoxManager {
             // Remove near-line class
             element.classList.remove('near-line');
             
-            // Remove near-line class from all connected boxes
+            // Remove classes from all connected boxes
             const connectedBoxes = this.getAllConnectedBoxes(this.draggedWordBox);
             connectedBoxes.forEach(box => {
                 if (box !== this.draggedWordBox) {
                     box.getElement().classList.remove('near-line');
                 }
             });
+            
+            // Remove debug element
+            const debugEl = document.getElementById('collision-debug');
+            if (debugEl) {
+                debugEl.parentElement?.removeChild(debugEl);
+            }
             
             // Clean up our tracking properties
             this.draggedWordBox = null;
@@ -1868,6 +1983,67 @@ export class WordBoxManager {
         return connectedBoxes;
     }
 
+    // Helper method to check if two rectangles overlap
+    private checkCollision(rect1: DOMRect, rect2: DOMRect): boolean {
+        const collision = !(
+            rect1.right < rect2.left ||
+            rect1.left > rect2.right ||
+            rect1.bottom < rect2.top ||
+            rect1.top > rect2.bottom
+        );
+        
+        if (collision) {
+            console.log("COLLISION DETAILS:");
+            console.log(`  Rect1: (${rect1.left}, ${rect1.top}, ${rect1.right}, ${rect1.bottom})`);
+            console.log(`  Rect2: (${rect2.left}, ${rect2.top}, ${rect2.right}, ${rect2.bottom})`);
+            console.log(`  Horizontally: ${!(rect1.right < rect2.left || rect1.left > rect2.right)}`);
+            console.log(`  Vertically: ${!(rect1.bottom < rect2.top || rect1.top > rect2.bottom)}`);
+        }
+        
+        return collision;
+    }
+    
+    // Helper method to find all other WordBoxes on the page and check for collisions
+    private findCollidingWordBox(draggingBox: WordBox, pageContainer: HTMLElement, testRect: DOMRect): WordBox | null {
+        // Skip collision with the draggingBox itself and any of its connected boxes (children/parents)
+        const connectedBoxes = this.getAllConnectedBoxes(draggingBox);
+        const connectedIds = connectedBoxes.map(box => box.getId());
+        
+        console.log(`Test rect at: (${testRect.left}, ${testRect.top}) size: ${testRect.width}x${testRect.height}`);
+        console.log(`Connected boxes to skip: ${connectedIds.join(', ')}`);
+        
+        // Get all wordboxes on the current page
+        const wordBoxElements = Array.from(pageContainer.querySelectorAll('[id^="wordbox-"]'));
+        console.log(`Found ${wordBoxElements.length} WordBoxes on page to check for collisions`);
+        
+        // Check each wordbox for collision
+        for (const boxEl of wordBoxElements) {
+            const boxId = boxEl.id;
+            
+            // Skip if this is the box we're dragging or one of its connected boxes
+            if (connectedIds.includes(boxId)) {
+                continue;
+            }
+            
+            const box = WordBox.fromElement(boxEl as HTMLElement);
+            if (!box) continue;
+            
+            // Get bounding rect
+            const boxRect = boxEl.getBoundingClientRect();
+            console.log(`Checking box ${boxId} at: (${boxRect.left}, ${boxRect.top}) size: ${boxRect.width}x${boxRect.height}`);
+            
+            // Check for collision
+            const collides = this.checkCollision(testRect, boxRect);
+            if (collides) {
+                console.log(`COLLISION DETECTED with box ${boxId}!`);
+                return box;
+            }
+        }
+        
+        console.log("No collisions found");
+        return null;
+    }
+    
     private updateChildBoxPosition(parentBox: WordBox, forcedParentLeft?: number, shiftKeyPressed?: boolean) {
         const parentEl = parentBox.getElement();
         const pageContainer = parentEl.closest('.canvas-container');
