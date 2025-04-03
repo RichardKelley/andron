@@ -779,6 +779,7 @@ window.addEventListener('load', () => {
                 { key: 'Enter', description: 'Finish editing a WordBox' },
                 { key: 'w', description: 'Navigate upward through WordBoxes or circles' },
                 { key: 's', description: 'Navigate downward through WordBoxes or circles' },
+                { key: 'Shift+Drag', description: 'Constrain WordBox movement within page margins' },
                 { key: 'Ctrl+Z / Cmd+Z', description: 'Undo last action' },
                 { key: 'Ctrl+Shift+Z / Cmd+Shift+Z', description: 'Redo last action' },
                 { key: 'Ctrl+S / Cmd+S', description: 'Save document' }
