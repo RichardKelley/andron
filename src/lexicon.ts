@@ -288,6 +288,16 @@ export class Lexicon {
             console.log(`Skipping lexicon entry for "${primaryText}" or empty string`);
             return null;
         }
+        
+        // Strip punctuation marks except apostrophes
+        const strippedText = primaryText.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()[\]"?]/g, '').trim();
+        if (!strippedText) {
+            console.log(`Skipping lexicon entry after punctuation was removed: "${primaryText}"`);
+            return null;
+        }
+        
+        // Use the stripped text as the primary text
+        primaryText = strippedText;
 
         let entry = this.entries.get(primaryText);
         if (!entry) {
@@ -297,7 +307,11 @@ export class Lexicon {
         
         // Skip empty translations
         if (translation && translation !== 'New Word' && translation.trim()) {
-            entry.addTranslation(translation);
+            // Strip punctuation marks except apostrophes from translation
+            const strippedTranslation = translation.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()[\]"?]/g, '').trim();
+            if (strippedTranslation) {
+                entry.addTranslation(strippedTranslation);
+            }
         }
         
         if (pageNumber) {
