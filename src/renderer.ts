@@ -22,7 +22,7 @@ import { Lexicon } from './lexicon.js';
 declare global {
     interface Window {
         electronAPI: {
-            saveDocument: (documentData: string, documentName?: string) => Promise<boolean>;
+            saveDocument: (documentData: string, documentName?: string, saveAs?: boolean) => Promise<boolean>;
             openDocument: () => Promise<{ data: string; filePath: string } | null>;
             exportPdf: (documentData: string, defaultName?: string) => Promise<boolean>;
             exportLatex: (documentData: string, defaultName?: string) => Promise<boolean>;
@@ -31,6 +31,7 @@ declare global {
             onMenuNew: (callback: () => void) => void;
             onMenuOpen: (callback: () => void) => void;
             onMenuSave: (callback: () => void) => void;
+            onMenuSaveAs: (callback: () => void) => void;
             onMenuExportPdf: (callback: () => void) => void;
             onMenuExportLatex: (callback: () => void) => void;
             onMenuExportLexicon: (callback: () => void) => void;
@@ -38,6 +39,7 @@ declare global {
             confirmClose: (shouldClose: boolean) => void;
         }
         historyManager: HistoryManager;
+        deleteOperationHandled: boolean;
     }
 }
 
@@ -45,6 +47,10 @@ declare global {
 const canvasManager = new CanvasManager();
 const wordBoxManager = new WordBoxManager();
 const historyManager = new HistoryManager(canvasManager, updateModifiedState);
+
+// Global flag to track if a delete operation has already been handled
+// Used to prevent both a WordBox and TextLine being deleted on 'x' key press
+(window as any).deleteOperationHandled = false;
 canvasManager.setHistoryManager(historyManager);
 wordBoxManager.setCanvasManager(canvasManager);
 wordBoxManager.setHistoryManager(historyManager);
@@ -2267,12 +2273,13 @@ function serializeDocument(): DocumentState {
 }
 
 // Function to save document
-async function saveDocument(): Promise<boolean> {
+async function saveDocument(saveAs: boolean = false): Promise<boolean> {
     try {
         const documentState = serializeDocument();
         const success = await window.electronAPI.saveDocument(
             JSON.stringify(documentState),
-            currentDocumentName || undefined
+            currentDocumentName || undefined,
+            saveAs
         );
         if (success) {
             // Extract the document name from the saved file path
@@ -2295,6 +2302,11 @@ async function saveDocument(): Promise<boolean> {
         console.error('Error saving document:', error);
         return false;
     }
+}
+
+// Function to save document with a new name
+async function saveDocumentAs(): Promise<boolean> {
+    return saveDocument(true);
 }
 
 // Function to load document
@@ -2935,6 +2947,10 @@ window.electronAPI.onMenuOpen(() => {
 
 window.electronAPI.onMenuSave(() => {
     saveDocument();
+});
+
+window.electronAPI.onMenuSaveAs(() => {
+    saveDocumentAs();
 });
 
 window.electronAPI.onMenuExportPdf(() => {

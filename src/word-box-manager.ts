@@ -708,6 +708,17 @@ export class WordBoxManager {
 
         // Handle other keys only when a box is highlighted
         if (this.currentlyHighlightedBox) {
+            if (e.key === 'x') {
+                console.log("WordBoxManager: Detected 'x' key press on highlighted box");
+                
+                // Mark that we're handling this delete operation
+                (window as any).deleteOperationHandled = true;
+                console.log("WordBoxManager: Setting deleteOperationHandled to true");
+                
+                // Try both stopping propagation and preventing default
+                e.stopPropagation();
+                e.preventDefault();
+            }
             this.handleOtherKeys(e);
         }
     }
@@ -1417,6 +1428,18 @@ export class WordBoxManager {
                 // Update the currently highlighted box to the clicked one
                 this.currentlyHighlightedBox = wordBox.getElement();
                 
+                // Deselect any selected TextLines in all pages
+                if (this.canvasManager) {
+                    const textLinesMap = this.canvasManager.getTextLines();
+                    textLinesMap.forEach(lines => {
+                        lines.forEach(line => {
+                            if (line.isSelected()) {
+                                line.setSelected(false);
+                            }
+                        });
+                    });
+                }
+                
                 // Update lexicon info with the selected WordBox
                 const updateLexiconInfo = (window as any).updateLexiconInfo;
                 if (typeof updateLexiconInfo === 'function') {
@@ -1438,6 +1461,20 @@ export class WordBoxManager {
             // Get the clicked word box
             const wordBox = WordBox.fromElement(wordBoxEl);
             if (!wordBox) return;
+
+            // Deselect any selected TextLines in all pages BEFORE starting the drag
+            if (this.canvasManager) {
+                console.log("WordBoxManager.handleMouseDown: Deselecting any selected TextLines");
+                const textLinesMap = this.canvasManager.getTextLines();
+                textLinesMap.forEach((lines, pageNum) => {
+                    lines.forEach(line => {
+                        if (line.isSelected()) {
+                            console.log(`WordBoxManager.handleMouseDown: Deselecting line on page ${pageNum}`);
+                            line.setSelected(false);
+                        }
+                    });
+                });
+            }
 
             // Find the root parent box or use the clicked box if it has no parent
             this.draggedWordBox = wordBox;
@@ -1903,6 +1940,17 @@ export class WordBoxManager {
             measureSpan.style.whiteSpace = 'pre';
             document.body.appendChild(measureSpan);
             this.createAndSetupInput(rectContainer, wordBoxEl, measureSpan, rectContainer.textContent || '');
+        }
+    }
+    
+    // Public method to clear all WordBox selections and highlighted elements
+    public clearSelection() {
+        // Clear current highlighted box and circle
+        this.currentlyHighlightedBox = null;
+        
+        if (this.currentlyHighlightedCircle) {
+            this.currentlyHighlightedCircle.classList.remove('highlighted');
+            this.currentlyHighlightedCircle = null;
         }
     }
 

@@ -114,18 +114,44 @@ export class TextLine {
 
     // Set the selection state of the line
     setSelected(selected: boolean): void {
-        if (this.selected === selected) return; // Only update if state actually changes
+        console.log(`TextLine ${this.getId()}: setSelected(${selected}) - current state: ${this.selected}`);
+        
+        if (this.selected === selected) {
+            console.log(`TextLine ${this.getId()}: No change in selection state, returning`);
+            return; // Only update if state actually changes
+        }
         
         this.selected = selected;
+        console.log(`TextLine ${this.getId()}: Selected state changed to ${this.selected}`);
         
-        // If this line is being selected, deselect all other lines on the page
+        // If this line is being selected
         if (selected) {
+            console.log(`TextLine ${this.getId()}: Deselecting other lines and WordBoxes`);
+            
+            // Deselect all other lines on the page
             const lines = this.canvasManager.getTextLines().get(this.pageNumber) || [];
+            console.log(`TextLine ${this.getId()}: Found ${lines.length} lines on page ${this.pageNumber}`);
+            
             lines.forEach(line => {
                 if (line !== this && line.isSelected()) {
+                    console.log(`TextLine ${this.getId()}: Deselecting line ${line.getId()}`);
                     line.setSelected(false);
                 }
             });
+            
+            // Deselect any selected WordBoxes
+            // Use the already imported WordBox class
+            // Clear all WordBox selections
+            WordBox.instances.forEach(box => {
+                box.setSelected(false);
+                box.setIndividuallySelected(false);
+            });
+            
+            // Clear any highlighted box or circle in the WordBoxManager
+            const wordBoxManager = (window as any).wordBoxManager;
+            if (wordBoxManager) {
+                wordBoxManager.clearSelection();
+            }
         }
         
         // Redraw the canvas to reflect the selection change

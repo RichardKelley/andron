@@ -571,9 +571,28 @@ export class CanvasManager {
             for (const line of lines) {
                 if (line.isNearLine(0, mouseY)) {
                     clickedOnLine = true;
+                    console.log(`Clicked on line ${line.getId()}, currently selected: ${line.isSelected()}`);
+                    
+                    // Deselect any selected WordBoxes when clicking on a line
+                    console.log("CanvasManager.mousedown: Deselecting any selected WordBoxes");
+                    
+                    // Clear all WordBox selections using the already imported WordBox class
+                    WordBox.instances.forEach(box => {
+                        box.setSelected(false);
+                        box.setIndividuallySelected(false);
+                    });
+                    
+                    // Clear any highlighted box or circle in the WordBoxManager
+                    const wordBoxManager = (window as any).wordBoxManager;
+                    if (wordBoxManager) {
+                        wordBoxManager.clearSelection();
+                    }
+                    
                     // If just clicking (not dragging), toggle selection
                     if (!activeDragLine) {
-                        line.setSelected(!line.isSelected());
+                        const newState = !line.isSelected();
+                        console.log(`Toggling line ${line.getId()} selection to ${newState}`);
+                        line.setSelected(newState);
                     }
                     activeDragLine = line;
                     line.startDrag(e.clientY);
@@ -763,24 +782,41 @@ export class CanvasManager {
             
             // Handle 'x' key to delete selected line
             if (e.key === 'x') {
+                // Reset the delete operation handled flag at the beginning of each key press
+                (window as any).deleteOperationHandled = false;
+                
+                // Redundant check since we just reset the flag, but kept for clarity
+                if ((window as any).deleteOperationHandled) {
+                    console.log("Delete operation already handled by WordBox, skipping TextLine deletion");
+                    return; // Skip TextLine deletion if a WordBox was already deleted
+                }
+                
                 // Find the selected line on any page
                 let selectedLine: TextLine | null = null;
                 let selectedPageNumber: number = 0;
                 
                 // Search through all pages and lines
-                for (const [pageNum, lines] of this.textLines.entries()) {
-                    for (const line of lines) {
+                let selectedLinesCount = 0;
+                this.textLines.forEach((lines, pageNum) => {
+                    console.log(`Checking page ${pageNum}, found ${lines.length} lines`);
+                    lines.forEach(line => {
+                        console.log(`  Line ${line.getId()}: selected=${line.isSelected()}, isEmpty=${line.isEmpty()}, wordBoxes=${line.getWordBoxes().length}`);
                         if (line.isSelected()) {
                             selectedLine = line;
                             selectedPageNumber = pageNum;
-                            break;
+                            selectedLinesCount++;
                         }
-                    }
-                    if (selectedLine) break;
-                }
+                    });
+                });
+                console.log(`Found ${selectedLinesCount} selected lines`);
                 
                 // If a line is selected, delete it
                 if (selectedLine) {
+                    console.log(`Deleting line on page ${selectedPageNumber}`);
+                    
+                    // Mark that we're handling this delete operation
+                    (window as any).deleteOperationHandled = true;
+                    
                     // Record the delete operation if we have a history manager
                     if (this.historyManager) {
                         this.historyManager.addOperation(
@@ -790,6 +826,8 @@ export class CanvasManager {
                     
                     // Delete the line
                     this.deleteLine(selectedLine);
+                } else {
+                    console.log("No selected line to delete");
                 }
             }
         });

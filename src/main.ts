@@ -67,6 +67,13 @@ function createWindow() {
                         mainWindow.webContents.send('menu-save');
                     }
                 },
+                {
+                    label: 'Save As...',
+                    accelerator: 'CmdOrCtrl+Shift+S',
+                    click: () => {
+                        mainWindow.webContents.send('menu-save-as');
+                    }
+                },
                 { type: 'separator' },
                 {
                     label: 'Exit',
@@ -184,21 +191,39 @@ app.on('window-all-closed', () => {
 });
 
 // Add IPC handlers for file operations
-ipcMain.handle('save-document', async (event, documentData, defaultName) => {
-    const { filePath } = await dialog.showSaveDialog({
-        defaultPath: defaultName ? `${defaultName}.andron` : undefined,
-        filters: [
-            { name: 'Andron Document', extensions: ['andron'] }
-        ],
-        properties: ['createDirectory']
-    });
+ipcMain.handle('save-document', async (event, documentData, defaultName, saveAs) => {
+    // If we have a saved path and saveAs is not true, directly save without dialog
+    if (lastSavedPath && !saveAs) {
+        try {
+            await fs.writeFile(lastSavedPath, documentData, 'utf-8');
+            return true;
+        } catch (error) {
+            console.error('Error saving document:', error);
+            return false;
+        }
+    } else {
+        // Show dialog for first save or "Save As..."
+        const { filePath, canceled } = await dialog.showSaveDialog({
+            defaultPath: defaultName ? `${defaultName}.andron` : 
+                         lastSavedPath ? lastSavedPath : undefined,
+            filters: [
+                { name: 'Andron Document', extensions: ['andron'] }
+            ],
+            properties: ['createDirectory']
+        });
 
-    if (filePath) {
-        await fs.writeFile(filePath, documentData, 'utf-8');
-        lastSavedPath = filePath;
-        return true;
+        if (filePath && !canceled) {
+            try {
+                await fs.writeFile(filePath, documentData, 'utf-8');
+                lastSavedPath = filePath;
+                return true;
+            } catch (error) {
+                console.error('Error saving document:', error);
+                return false;
+            }
+        }
+        return false;
     }
-    return false;
 });
 
 ipcMain.handle('get-last-saved-path', async () => {
