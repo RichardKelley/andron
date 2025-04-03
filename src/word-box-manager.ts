@@ -1397,9 +1397,9 @@ export class WordBoxManager {
         });
         this.currentlyHighlightedBox = null;
         
-        // Clear lexicon info if no wordbox is selected
+        // Clear lexicon info if no wordbox is clicked
         const updateLexiconInfo = (window as any).updateLexiconInfo;
-        if (typeof updateLexiconInfo === 'function') {
+        if (typeof updateLexiconInfo === 'function' && !clickedWordBox) {
             updateLexiconInfo(null);
         }
         
@@ -1416,6 +1416,12 @@ export class WordBoxManager {
                 
                 // Update the currently highlighted box to the clicked one
                 this.currentlyHighlightedBox = wordBox.getElement();
+                
+                // Update lexicon info with the selected WordBox
+                const updateLexiconInfo = (window as any).updateLexiconInfo;
+                if (typeof updateLexiconInfo === 'function') {
+                    updateLexiconInfo(wordBox);
+                }
             }
         }
     }
@@ -1725,6 +1731,21 @@ export class WordBoxManager {
                                 parseInt(element.style.top)
                             )
                         );
+                    }
+                }
+            }
+
+            // If the box is not near a line at the end of dragging, ensure it's not associated with any line
+            if (!this.closestLine && this.draggedWordBox.getLineId()) {
+                // Get the line the box is currently associated with
+                const lineId = this.draggedWordBox.getLineId();
+                if (lineId) {
+                    const pageNumber = parseInt(lineId.split('-')[1]);
+                    const lines = this.getTextLines(pageNumber) || [];
+                    const currentLine = lines.find(line => line.getId() === lineId);
+                    if (currentLine) {
+                        // Remove the box from the line
+                        currentLine.removeWordBox(this.draggedWordBox);
                     }
                 }
             }

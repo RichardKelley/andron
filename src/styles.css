@@ -854,4 +854,73 @@ body {
 
 #child-wordbox-translation {
     width: 100%;
+}
+
+/* Lexicon management styles */
+.lexicon-list-container {
+    margin-bottom: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.lexicon-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    border-left: 3px solid #5865f2;
+}
+
+.lexicon-item.primary-lexicon {
+    background-color: #e3f2fd;
+    border-left-color: #0d47a1;
+    font-weight: 500;
+}
+
+.lexicon-name {
+    flex: 1;
+    font-size: 14px;
+    word-break: break-word;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.lexicon-name:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.lexicon-name-edit {
+    width: 100%;
+    padding: 2px 4px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.lexicon-name-edit:focus {
+    border-color: #5865f2;
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.2);
+}
+
+.lexicon-remove-btn {
+    background: none;
+    border: none;
+    color: #777;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 8px;
+    font-size: 16px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.lexicon-remove-btn:hover {
+    color: #f44336;
 } 

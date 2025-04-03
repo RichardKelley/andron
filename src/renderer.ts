@@ -242,6 +242,9 @@ async function handleBeforeClose() {
 
 // Single load event listener that handles everything
 window.addEventListener('load', () => {
+    // Initialize the Lexicon class
+    Lexicon.initialize();
+    console.log('Lexicon initialized');
     // Set global CSS variables
     document.documentElement.style.setProperty('--cap-height', `${CAP_HEIGHT - 2}px`);
     document.documentElement.style.setProperty('--vertical-spacing', `7.5px`);
@@ -262,6 +265,9 @@ window.addEventListener('load', () => {
 
     // Initialize right sidebar tabs
     initRightSidebar();
+    
+    // Initialize lexicon management UI
+    initLexiconManagement();
     
     // Initialize event listeners for application events
     initEventListeners();
@@ -1220,6 +1226,17 @@ function initRightSidebar() {
             </select>
         </div>
         <hr class="sidebar-divider">
+        <div class="sidebar-title">Lexicons</div>
+        <div id="lexicon-list" class="param-group">
+            <div class="lexicon-item primary-lexicon">
+                <div class="lexicon-name">Primary Lexicon</div>
+            </div>
+            <div id="secondary-lexicons" class="lexicon-list-container">
+                <!-- Secondary lexicons will be added here dynamically -->
+            </div>
+            <!-- Import button and file input will be added programmatically -->
+        </div>
+        <hr class="sidebar-divider">
         <div id="lexicon-info" class="param-group" style="display: none;">
             <div class="param-group">
                 <label for="parent-wordbox-text">Primary Text:</label>
@@ -1731,6 +1748,293 @@ function initRightSidebar() {
     });
 }
 
+// Function to initialize the lexicon management UI
+function initLexiconManagement() {
+    // Get references to DOM elements
+    const lexiconListDiv = document.getElementById('lexicon-list');
+    const secondaryLexiconsList = document.getElementById('secondary-lexicons');
+    const primaryLexiconItem = document.querySelector('.primary-lexicon .lexicon-name');
+    
+    // First, ensure we have a clean state without any duplicate elements
+    // Remove any existing import button and file input
+    const existingImportButtons = document.querySelectorAll('#import-lexicon-btn');
+    existingImportButtons.forEach(btn => btn.remove());
+    
+    const existingFileInputs = document.querySelectorAll('#lexicon-file-input');
+    existingFileInputs.forEach(input => input.remove());
+    
+    // Create new import button and file input element
+    const importLexiconBtn = document.createElement('button');
+    importLexiconBtn.id = 'import-lexicon-btn';
+    importLexiconBtn.className = 'sidebar-button';
+    importLexiconBtn.textContent = 'Import Lexicon';
+    
+    const lexiconFileInput = document.createElement('input');
+    lexiconFileInput.type = 'file';
+    lexiconFileInput.id = 'lexicon-file-input';
+    lexiconFileInput.accept = '.json';
+    lexiconFileInput.style.display = 'none';
+    
+    // Add them to the lexicon list div
+    if (lexiconListDiv) {
+        lexiconListDiv.appendChild(importLexiconBtn);
+        lexiconListDiv.appendChild(lexiconFileInput);
+    }
+    
+    if (!lexiconListDiv || !secondaryLexiconsList || !primaryLexiconItem) {
+        console.error('Could not find necessary lexicon UI elements');
+        return;
+    }
+    
+    // Update the primary lexicon name based on the current document or user input
+    const updatePrimaryLexiconName = (nameOverride?: string) => {
+        let fileName;
+        if (nameOverride) {
+            fileName = nameOverride;
+        } else {
+            const documentTitle = (document.getElementById('document-title') as HTMLTextAreaElement)?.value || '';
+            fileName = documentTitle ? documentTitle : 'Primary Lexicon';
+        }
+        
+        primaryLexiconItem.textContent = fileName;
+        
+        // Also update the name in the lexicon object
+        const primaryLexicon = Lexicon.getInstance();
+        primaryLexicon.setName(fileName);
+    };
+    
+    // Make the primary lexicon name element editable on click
+    if (primaryLexiconItem) {
+        primaryLexiconItem.addEventListener('click', (e) => {
+            // Prevent double triggering if already editing
+            if (primaryLexiconItem.querySelector('input')) return;
+            
+            const currentName = primaryLexiconItem.textContent || 'Primary Lexicon';
+            
+            // Create an input element
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            input.className = 'lexicon-name-edit';
+            
+            // Clear and append
+            primaryLexiconItem.textContent = '';
+            primaryLexiconItem.appendChild(input);
+            
+            // Focus the input
+            input.focus();
+            input.select();
+            
+            // Helper function to save the updated name
+            const saveName = () => {
+                const newName = input.value.trim() || 'Primary Lexicon';
+                updatePrimaryLexiconName(newName);
+            };
+            
+            // Save name on blur
+            input.addEventListener('blur', saveName);
+            
+            // Save name on Enter
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveName();
+                } else if (e.key === 'Escape') {
+                    // Restore original name on Escape
+                    updatePrimaryLexiconName(currentName);
+                }
+            });
+            
+            // Stop propagation to prevent other click handlers
+            e.stopPropagation();
+        });
+    }
+    
+    // Update primary lexicon name initially
+    updatePrimaryLexiconName();
+    
+    // Update the lexicon list on initialization
+    updateLexiconList();
+    
+    // Import lexicon button
+    importLexiconBtn.addEventListener('click', () => {
+        lexiconFileInput.click();
+    });
+    
+    // Handle file selection
+    lexiconFileInput.addEventListener('change', async (event) => {
+        const input = event.target as HTMLInputElement;
+        const files = input.files;
+        if (!files || files.length === 0) return;
+        
+        try {
+            const file = files[0];
+            const fileContents = await readFileAsText(file);
+            
+            console.log('Imported file content:', fileContents);
+            
+            // Parse the file contents as JSON
+            const lexiconData = JSON.parse(fileContents);
+            console.log('Parsed lexicon data:', lexiconData);
+            
+            // Create a new lexicon from the JSON data
+            const newLexicon = Lexicon.fromJSON(lexiconData);
+            console.log('Created new lexicon:', newLexicon.getName());
+            
+            // Verify the entries were loaded correctly
+            const entries = newLexicon.getAllEntries();
+            console.log(`Loaded ${entries.length} entries from file`);
+            
+            // Log some sample entries to verify data
+            if (entries.length > 0) {
+                console.log('Sample entries:');
+                entries.slice(0, 3).forEach(entry => {
+                    console.log(`- ${entry.getPrimaryText()}: ${entry.getTranslations().join(', ')}`);
+                });
+            }
+            
+            // Add the lexicon to the secondary lexicons
+            Lexicon.addSecondaryLexicon(newLexicon);
+            console.log('Secondary lexicons after adding:', 
+                Lexicon.getSecondaryLexicons().map(lex => lex.getName()));
+            
+            // Update the UI
+            updateLexiconList();
+            
+            // Let's verify that example entries have translations
+            console.log('Verifying translations - checking sample entries:');
+            const exampleEntries = entries.slice(0, 3);
+            let hasTranslations = false;
+            
+            exampleEntries.forEach(entry => {
+                const primaryText = entry.getPrimaryText();
+                const translations = entry.getTranslations();
+                console.log(`Entry '${primaryText}' has ${translations.length} translations`);
+                
+                if (translations.length > 0) {
+                    hasTranslations = true;
+                }
+            });
+            
+            if (!hasTranslations && entries.length > 0) {
+                console.warn('WARNING: Imported lexicon has entries but no translations!');
+                alert('The imported lexicon appears to be missing translations. You may need to check the lexicon file format.');
+            }
+            
+            // Clear the file input
+            input.value = '';
+            
+            // Show confirmation to user
+            alert(`Lexicon "${newLexicon.getName()}" imported successfully with ${newLexicon.getEntryCount()} entries`);
+            
+        } catch (error) {
+            console.error('Error importing lexicon:', error);
+            alert('Error importing lexicon: ' + (error as Error).message);
+            input.value = '';
+        }
+    });
+    
+    // Listen for changes to document title
+    const documentTitleInput = document.getElementById('document-title') as HTMLTextAreaElement;
+    if (documentTitleInput) {
+        documentTitleInput.addEventListener('input', () => {
+            updatePrimaryLexiconName(); // Call without parameters to use document title
+        });
+    }
+}
+
+// Update the lexicon list UI
+function updateLexiconList() {
+    const secondaryLexiconsContainer = document.getElementById('secondary-lexicons');
+    if (!secondaryLexiconsContainer) return;
+    
+    // Clear the container
+    secondaryLexiconsContainer.innerHTML = '';
+    
+    // Add secondary lexicons
+    const secondaryLexicons = Lexicon.getSecondaryLexicons();
+    secondaryLexicons.forEach(lexicon => {
+        const lexiconItem = document.createElement('div');
+        lexiconItem.className = 'lexicon-item';
+        
+        // Create lexicon name element
+        const lexiconName = document.createElement('div');
+        lexiconName.className = 'lexicon-name';
+        lexiconName.textContent = lexicon.getName();
+        
+        // Make secondary lexicon names editable
+        lexiconName.addEventListener('click', (e) => {
+            // Prevent double triggering if already editing
+            if (lexiconName.querySelector('input')) return;
+            
+            const currentName = lexiconName.textContent || 'Imported Lexicon';
+            
+            // Create an input element
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            input.className = 'lexicon-name-edit';
+            
+            // Clear and append
+            lexiconName.textContent = '';
+            lexiconName.appendChild(input);
+            
+            // Focus the input
+            input.focus();
+            input.select();
+            
+            // Store original lexicon ref for later use
+            const lexiconRef = lexicon;
+            
+            // Helper function to save the updated name
+            const saveName = () => {
+                const newName = input.value.trim() || 'Imported Lexicon';
+                lexiconName.textContent = newName;
+                
+                // Update the name in the lexicon object
+                lexiconRef.setName(newName);
+                
+                // There's a potential issue with removeSecondaryLexicon using the name as an ID
+                // If we need to keep a reference, updateLexiconList() would re-render anyway
+            };
+            
+            // Save name on blur
+            input.addEventListener('blur', saveName);
+            
+            // Save name on Enter
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveName();
+                } else if (e.key === 'Escape') {
+                    // Restore original name on Escape
+                    lexiconName.textContent = currentName;
+                }
+            });
+            
+            // Stop propagation to prevent other click handlers
+            e.stopPropagation();
+        });
+        
+        // Create remove button
+        const removeButton = document.createElement('button');
+        removeButton.className = 'lexicon-remove-btn';
+        removeButton.innerHTML = '&times;';
+        removeButton.title = 'Remove this lexicon';
+        removeButton.addEventListener('click', () => {
+            // Remove the lexicon
+            Lexicon.removeSecondaryLexicon(lexicon.getName());
+            
+            // Update the UI
+            updateLexiconList();
+        });
+        
+        lexiconItem.appendChild(lexiconName);
+        lexiconItem.appendChild(removeButton);
+        secondaryLexiconsContainer.appendChild(lexiconItem);
+    });
+}
+
 // Function to serialize document state
 function serializeDocument(): DocumentState {
     const pages: PageState[] = [];
@@ -1833,7 +2137,8 @@ function serializeDocument(): DocumentState {
         pageParameters: pageParams,
         uiState,
         pages,
-        lexicon: Lexicon.getInstance().toJSON() // Add lexicon data
+        lexicon: Lexicon.getInstance().toJSON(), // Add primary lexicon data
+        secondaryLexicons: Lexicon.getSecondaryLexicons().map(lexicon => lexicon.toJSON()) // Add secondary lexicons
     };
 }
 
@@ -1897,7 +2202,52 @@ async function loadDocument() {
 
             // Load lexicon data if available
             if (documentState.lexicon) {
-                Lexicon.fromJSON(JSON.stringify(documentState.lexicon));
+                console.log('Loading lexicon from saved document state');
+                try {
+                    // Make sure we initialize the Lexicon class
+                    Lexicon.initialize();
+                    
+                    // Convert the lexicon data back to a proper Lexicon object
+                    const primaryLexicon = Lexicon.fromJSON(documentState.lexicon);
+                    
+                    // Replace the existing primary lexicon with the loaded one
+                    const instance = Lexicon.getInstance();
+                    instance.setName(primaryLexicon.getName());
+                    
+                    // Copy all entries from the loaded lexicon to the primary
+                    primaryLexicon.getAllEntries().forEach(entry => {
+                        const text = entry.getPrimaryText();
+                        entry.getTranslations().forEach(translation => {
+                            instance.addEntry(text, translation);
+                        });
+                        entry.getPageNumbers().forEach(pageNumber => {
+                            instance.addEntry(text, undefined, pageNumber);
+                        });
+                    });
+                    
+                    console.log('Lexicon loaded successfully with', instance.getEntryCount(), 'entries');
+                } catch (error) {
+                    console.error('Error loading lexicon from document state:', error);
+                }
+            }
+            
+            // Load secondary lexicons if present
+            if (documentState.secondaryLexicons && Array.isArray(documentState.secondaryLexicons)) {
+                console.log('Loading secondary lexicons from saved document state');
+                try {
+                    documentState.secondaryLexicons.forEach((lexiconData: any, index: number) => {
+                        try {
+                            const lexicon = Lexicon.fromJSON(lexiconData);
+                            Lexicon.addSecondaryLexicon(lexicon);
+                            console.log(`Secondary lexicon ${index + 1} loaded:`, lexicon.getName());
+                        } catch (error) {
+                            console.error(`Error loading secondary lexicon ${index + 1}:`, error);
+                        }
+                    });
+                    console.log('Secondary lexicons loaded:', Lexicon.getSecondaryLexicons().length);
+                } catch (error) {
+                    console.error('Error loading secondary lexicons:', error);
+                }
             }
 
             // Update UI state
@@ -2570,80 +2920,172 @@ function updateLexiconInfo(selectedWordBox: WordBox | null) {
     // Get the current child text if there's a child box
     const childText = childBox?.getElement().querySelector('.wordbox-rect')?.textContent || '';
     
-    // Get translations from lexicon
-    const lexicon = Lexicon.getInstance();
-    const entry = lexicon.getEntry(parentText);
+    // Ensure lexicons are properly loaded before searching
+    console.log('Primary lexicon:', Lexicon.getInstance());
+    console.log('Secondary lexicons:', Lexicon.getSecondaryLexicons());
     
+    // Search for translations across all lexicons
+    console.log('Searching for word:', parentText);
+    let result;
+    try {
+        result = Lexicon.findEntryInAllLexicons(parentText);
+        console.log('Search result:', result);
+    } catch (error) {
+        console.error('Error during search:', error);
+    }
+    
+    let entry = result?.entry;
+    let sourceLexicon = result?.source;
+    
+    // If an entry was found in any lexicon, copy ALL translations from all lexicons to primary
+    if (entry) {
+        console.log('Entry found, merging all translations to primary lexicon');
+        try {
+            // Merge all translations from all lexicons
+            Lexicon.mergeAllTranslations(parentText);
+            
+            // Get the updated entry from the primary lexicon
+            entry = Lexicon.getInstance().getEntry(parentText);
+            console.log('Entry after merging all translations:', entry);
+            
+            // Update the lexicon UI to reflect the changes
+            updateLexiconList();
+        } catch (error) {
+            console.error('Error merging translations to primary lexicon:', error);
+        }
+    } else if (!entry) {
+        console.log('No entry found in any lexicon for:', parentText);
+        
+        // If there's no entry found but we have parentText, create a new entry in the primary lexicon
+        if (parentText) {
+            console.log('Creating new entry in primary lexicon for:', parentText);
+            
+            // Add basic empty entry to primary lexicon
+            const primaryLexicon = Lexicon.getInstance();
+            primaryLexicon.addEntry(parentText);
+            
+            // Now search again to get the entry
+            entry = primaryLexicon.getEntry(parentText);
+        }
+    }
+    
+    // Gather ALL translations from ALL lexicons for this word
+    console.log('Gathering all translations from all lexicons for:', parentText);
+    
+    // Create a Set to store unique translations
+    const allTranslations = new Set<string>();
+    
+    // Add translations from the entry we just found
     if (entry) {
         const translations = entry.getTranslations();
+        console.log('Found translations in matched entry:', translations);
         
-        // Add an option for each translation
         translations.forEach(translation => {
+            allTranslations.add(translation);
+        });
+    }
+    
+    // Also search for additional translations in all other lexicons
+    console.log('Searching for additional translations in all lexicons');
+    
+    // Check primary lexicon if entry wasn't from there
+    const primaryLexicon = Lexicon.getInstance();
+    if (entry && sourceLexicon !== primaryLexicon) {
+        const primaryEntry = primaryLexicon.getEntry(parentText);
+        if (primaryEntry) {
+            console.log('Found entry in primary lexicon as well');
+            primaryEntry.getTranslations().forEach(translation => {
+                console.log('Adding translation from primary lexicon:', translation);
+                allTranslations.add(translation);
+            });
+        }
+    }
+    
+    // Check all secondary lexicons
+    Lexicon.getSecondaryLexicons().forEach(lexicon => {
+        // Skip the source lexicon we already checked
+        if (entry && lexicon === sourceLexicon) return;
+        
+        const secondaryEntry = lexicon.getEntry(parentText);
+        if (secondaryEntry) {
+            console.log(`Found entry in secondary lexicon: ${lexicon.getName()}`);
+            secondaryEntry.getTranslations().forEach(translation => {
+                console.log(`Adding translation from ${lexicon.getName()}:`, translation);
+                allTranslations.add(translation);
+            });
+        }
+    });
+    
+    // Convert to array for easier handling
+    const allTranslationsArray = Array.from(allTranslations);
+    console.log('All unique translations found:', allTranslationsArray);
+    
+    // If there are no translations, add a placeholder option
+    if (allTranslationsArray.length === 0) {
+        console.log('No translations found in any lexicon - adding placeholder option');
+        const option = document.createElement('option');
+        option.value = "Add Translation";
+        option.textContent = "Add Translation";
+        childWordboxTranslation.appendChild(option);
+    } else {
+        // Add an option for each translation
+        allTranslationsArray.forEach(translation => {
+            console.log('Adding translation to dropdown:', translation);
             const option = document.createElement('option');
             option.value = translation;
             option.textContent = translation;
             childWordboxTranslation.appendChild(option);
         });
+    }
         
-        // If there are translations but no child box, add a placeholder option
-        if (!childBox && translations.length > 0) {
-            // The dropdown will be active with translations but will create a child when selected
-            // Set the first translation as selected
-            if (childWordboxTranslation.options.length > 0) {
-                childWordboxTranslation.selectedIndex = 0;
-            }
-        }
-        // If there are no translations and we have a child, add the current child text as an option
-        else if (translations.length === 0 && childText) {
-            const option = document.createElement('option');
-            option.value = childText;
-            option.textContent = childText;
-            childWordboxTranslation.appendChild(option);
-        }
-        // If there are no translations and no child, add a placeholder option
-        else if (translations.length === 0 && !childBox) {
-            const option = document.createElement('option');
-            option.value = "New Translation";
-            option.textContent = "New Translation";
-            childWordboxTranslation.appendChild(option);
-        }
+    console.log('Dropdown options count after adding:', childWordboxTranslation.options.length);
+    
+    // Handle different scenarios for the dropdown options
+    if (allTranslationsArray.length > 0) {
+        // We have translations in the dropdown already
         
-        // Set the selected value to the current child text if it exists
-        if (childText) {
-            // Try to find the child text in the options
-            let found = false;
-            for (let i = 0; i < childWordboxTranslation.options.length; i++) {
-                if (childWordboxTranslation.options[i].value === childText) {
-                    childWordboxTranslation.selectedIndex = i;
-                    found = true;
-                    break;
-                }
-            }
-            
-            // If not found, add it as a new option
-            if (!found) {
-                const option = document.createElement('option');
-                option.value = childText;
-                option.textContent = childText;
-                childWordboxTranslation.appendChild(option);
-                childWordboxTranslation.selectedIndex = childWordboxTranslation.options.length - 1;
-            }
+        // If there's no child box, just make sure the first translation is selected
+        if (!childBox && childWordboxTranslation.options.length > 0) {
+            childWordboxTranslation.selectedIndex = 0;
         }
     } else {
-        // No lexicon entry
+        // No translations found in any lexicon
+        
+        // If we have a child text, use that
         if (childText) {
-            // Just add the current child text as an option
             const option = document.createElement('option');
             option.value = childText;
             option.textContent = childText;
             childWordboxTranslation.appendChild(option);
-            childWordboxTranslation.selectedIndex = 0;
-        } else {
-            // No lexicon entry and no child, add placeholder
+        } 
+        // Otherwise add a placeholder option if we don't have a child box
+        else if (!childBox) {
             const option = document.createElement('option');
             option.value = "New Translation";
             option.textContent = "New Translation";
             childWordboxTranslation.appendChild(option);
+        }
+    }
+    
+    // Set the selected value to the current child text if it exists
+    if (childText) {
+        // Try to find the child text in the options
+        let found = false;
+        for (let i = 0; i < childWordboxTranslation.options.length; i++) {
+            if (childWordboxTranslation.options[i].value === childText) {
+                childWordboxTranslation.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+        
+        // If not found, add it as a new option
+        if (!found) {
+            const option = document.createElement('option');
+            option.value = childText;
+            option.textContent = childText;
+            childWordboxTranslation.appendChild(option);
+            childWordboxTranslation.selectedIndex = childWordboxTranslation.options.length - 1;
         }
     }
     
@@ -2705,3 +3147,22 @@ function updateLexiconInfo(selectedWordBox: WordBox | null) {
 
 // Make updateLexiconInfo available globally
 (window as any).updateLexiconInfo = updateLexiconInfo;
+
+
+// Helper function to read a file as text
+function readFileAsText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (typeof reader.result === 'string') {
+                resolve(reader.result);
+            } else {
+                reject(new Error('Failed to read file as text'));
+            }
+        };
+        reader.onerror = () => {
+            reject(reader.error);
+        };
+        reader.readAsText(file);
+    });
+}

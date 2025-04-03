@@ -13,7 +13,8 @@ export interface DocumentState {
     pageParameters: PageParameters;
     uiState: UIState;
     pages: PageState[];
-    lexicon?: any[];
+    lexicon?: any;
+    secondaryLexicons?: any[];
 }
 
 export interface PageState {

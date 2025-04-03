@@ -325,8 +325,8 @@ export class WordBox {
 
     // Change from private to public
     public updateLexicon(newText: string, oldText?: string): void {
-        // Skip if the text is the default "New Word"
-        if (newText === 'New Word') {
+        // Skip if the text is the default "New Word" or empty
+        if (newText === 'New Word' || !newText.trim()) {
             return;
         }
 
@@ -346,7 +346,7 @@ export class WordBox {
                 const childBox = WordBox.fromElement(document.getElementById(this.childBoxIdBottom));
                 if (childBox) {
                     const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent;
-                    if (childText && childText !== 'New Word') {
+                    if (childText && childText !== 'New Word' && childText.trim()) {
                         lexicon.addEntry(newText, childText);
                     }
                 }
@@ -355,7 +355,7 @@ export class WordBox {
                 const childBox = WordBox.fromElement(document.getElementById(this.childBoxIdTop));
                 if (childBox) {
                     const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent;
-                    if (childText && childText !== 'New Word') {
+                    if (childText && childText !== 'New Word' && childText.trim()) {
                         lexicon.addEntry(newText, childText);
                     }
                 }
@@ -367,7 +367,7 @@ export class WordBox {
             const parentBox = WordBox.fromElement(document.getElementById(this.parentId));
             if (parentBox) {
                 const parentText = parentBox.getElement().querySelector('.wordbox-rect')?.textContent;
-                if (parentText && parentText !== 'New Word') {
+                if (parentText && parentText !== 'New Word' && parentText.trim()) {
                     lexicon.addEntry(parentText, newText);
                 }
             }
