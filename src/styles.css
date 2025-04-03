@@ -175,6 +175,17 @@ body {
     font-weight: 500;
     cursor: pointer;
     transition: background-color 0.2s;
+    user-select: none;
+    outline: none; /* Prevent button outline when focused */
+}
+
+/* Prevent focus outline and style */
+.sidebar-button:focus,
+.sidebar-button:focus-visible,
+.tab-button:focus,
+.tab-button:focus-visible {
+    outline: none;
+    box-shadow: none;
 }
 
 .sidebar-button:hover {

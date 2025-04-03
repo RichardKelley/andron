@@ -1576,39 +1576,56 @@ export class WordBoxManager {
             const newX = this.initialWordBoxX + deltaX;
             let newY = this.initialWordBoxY + deltaY;
 
-            // If this is a headline, restrict movement to stay within margins
-            if (this.draggedWordBox.getElement().classList.contains('headline')) {
-                const pageContainer = element.closest('.canvas-container') as HTMLElement;
-                if (pageContainer) {
-                    const canvas = pageContainer.querySelector('canvas');
-                    if (canvas) {
-                        const margins = this.canvasManager?.getGlobalMargins();
-                        if (margins) {
-                            // Ensure the headline stays above top margin
-                            const maxY = margins.top - CAP_HEIGHT;
-                            newY = Math.min(newY, maxY);
+            // Get page container and margins
+            const pageContainer = element.closest('.canvas-container') as HTMLElement;
+            const canvas = pageContainer?.querySelector('canvas');
+            const margins = canvas ? this.canvasManager?.getGlobalMargins() : null;
+            const rect = element.querySelector('.wordbox-rect') as HTMLElement;
+            const boxWidth = rect ? rect.getBoundingClientRect().width : 0;
+            const boxHeight = rect ? rect.getBoundingClientRect().height : 0;
 
-                            // Ensure the headline stays between left and right margins
-                            const rect = element.querySelector('.wordbox-rect') as HTMLElement;
-                            const boxWidth = rect.getBoundingClientRect().width;
-                            const minX = margins.left + 3; // Same offset as initial placement
-                            const maxX = margins.right - boxWidth - 3; // Leave same margin on right
-                            const clampedX = Math.max(minX, Math.min(maxX, newX));
-                            this.draggedWordBox.setX(clampedX);
-                            this.draggedWordBox.setY(newY);
-                            return; // Skip the normal position update
-                        }
-                    }
+            // If this is a headline, always restrict movement to stay within margins
+            if (this.draggedWordBox.getElement().classList.contains('headline')) {
+                if (pageContainer && canvas && margins) {
+                    // Ensure the headline stays above top margin
+                    const maxY = margins.top - CAP_HEIGHT;
+                    newY = Math.min(newY, maxY);
+
+                    // Ensure the headline stays between left and right margins
+                    const minX = margins.left + 3; // Same offset as initial placement
+                    const maxX = margins.right - boxWidth - 3; // Leave same margin on right
+                    const clampedX = Math.max(minX, Math.min(maxX, newX));
+                    this.draggedWordBox.setX(clampedX);
+                    this.draggedWordBox.setY(newY);
+                    return; // Skip the normal position update
                 }
             }
             
-            // Update position of the main box (for non-headlines)
-            this.draggedWordBox.setX(newX);
-            this.draggedWordBox.setY(newY);
+            // Check if Shift key is held down - if so, restrict all WordBoxes to page margins
+            // Also restrict Chapter and Section boxes to page margins regardless of Shift key
+            if ((e.shiftKey || this.draggedWordBox.getIsChapter() || this.draggedWordBox.getIsSection()) && 
+                pageContainer && canvas && margins) {
+                // Calculate clamped position to keep box within margins
+                const minX = margins.left + 3;
+                const maxX = margins.right - boxWidth - 3;
+                const minY = margins.top;
+                const maxY = margins.bottom - boxHeight;
+                
+                const clampedX = Math.max(minX, Math.min(maxX, newX));
+                const clampedY = Math.max(minY, Math.min(maxY, newY));
+                
+                // Update position with clamped values
+                this.draggedWordBox.setX(clampedX);
+                this.draggedWordBox.setY(clampedY);
+            } else {
+                // Normal update without clamping
+                this.draggedWordBox.setX(newX);
+                this.draggedWordBox.setY(newY);
+            }
             
-            // Update positions of all child boxes, passing the parent's left position
+            // Update positions of all child boxes, passing the parent's left position and shift key state
             const parentLeft = this.draggedWordBox.getX();
-            this.updateChildBoxPosition(this.draggedWordBox, parentLeft);
+            this.updateChildBoxPosition(this.draggedWordBox, parentLeft, e.shiftKey);
             
             // Find the page the word box is currently over
             let targetPage: Element | null = null;
@@ -1851,7 +1868,7 @@ export class WordBoxManager {
         return connectedBoxes;
     }
 
-    private updateChildBoxPosition(parentBox: WordBox, forcedParentLeft?: number) {
+    private updateChildBoxPosition(parentBox: WordBox, forcedParentLeft?: number, shiftKeyPressed?: boolean) {
         const parentEl = parentBox.getElement();
         const pageContainer = parentEl.closest('.canvas-container');
         if (!pageContainer) return;
@@ -1860,6 +1877,7 @@ export class WordBoxManager {
         if (!canvas) return;
 
         const containerRect = pageContainer.getBoundingClientRect();
+        const margins = this.canvasManager?.getGlobalMargins();
         
         // Function to recursively update child positions
         const updateChildPosition = (box: WordBox, isTop: boolean) => {
@@ -1878,9 +1896,35 @@ export class WordBoxManager {
                 parentTop - CAP_HEIGHT - WordBox.verticalSpacing : 
                 parentTop + parentHeight + WordBox.verticalSpacing;
             
-            // Update child position
-            childEl.style.left = `${newLeft}px`;
-            childEl.style.top = `${newTop}px`;
+            // Check if we need to constrain within margins (shift key or Chapter/Section parent)
+            if (shiftKeyPressed || parentBox.getIsChapter() || parentBox.getIsSection()) {
+                if (margins) {
+                    const rect = childEl.querySelector('.wordbox-rect') as HTMLElement;
+                    const boxWidth = rect ? rect.getBoundingClientRect().width : 0;
+                    const boxHeight = rect ? rect.getBoundingClientRect().height : 0;
+                    
+                    // Constrain the child within page margins
+                    const minX = margins.left + 3;
+                    const maxX = margins.right - boxWidth - 3;
+                    const minY = margins.top;
+                    const maxY = margins.bottom - boxHeight;
+                    
+                    const clampedLeft = Math.max(minX, Math.min(maxX, newLeft));
+                    const clampedTop = Math.max(minY, Math.min(maxY, newTop));
+                    
+                    // Update child position with clamped values
+                    childEl.style.left = `${clampedLeft}px`;
+                    childEl.style.top = `${clampedTop}px`;
+                } else {
+                    // Default behavior if margins can't be determined
+                    childEl.style.left = `${newLeft}px`;
+                    childEl.style.top = `${newTop}px`;
+                }
+            } else {
+                // Normal update without clamping
+                childEl.style.left = `${newLeft}px`;
+                childEl.style.top = `${newTop}px`;
+            }
             childEl.style.display = 'block'; // Ensure child is visible
 
             // If parent is attached to a line, attach child to the same line

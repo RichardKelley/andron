@@ -287,6 +287,20 @@ window.addEventListener('load', () => {
             });
         }
     });
+    
+    // Prevent buttons from getting focus when shift is pressed
+    document.addEventListener('mousedown', (e) => {
+        // Check if shift key is pressed and target is a button
+        if (e.shiftKey && (e.target instanceof HTMLButtonElement || 
+            (e.target as HTMLElement).closest('button'))) {
+            e.preventDefault(); // Prevent default focus behavior
+            
+            // Blur any focused elements
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+        }
+    }, true); // Use capture phase to intercept event before it reaches button
 
     // Handle Add Headline button click
     headlineBtn.addEventListener('click', () => {
