@@ -36,6 +36,7 @@ declare global {
             onMenuExportLatex: (callback: () => void) => void;
             onMenuExportLexicon: (callback: () => void) => void;
             onCheckUnsavedChanges: (callback: () => Promise<void>) => void;
+            onShowHelpModal: (callback: () => void) => void;
             confirmClose: (shouldClose: boolean) => void;
         }
         historyManager: HistoryManager;
@@ -120,7 +121,144 @@ function adjustTextAreaHeight(element: HTMLTextAreaElement) {
 }
 
 // Custom modal dialog functions
-function showModal(title: string, message: string, showNoButton: boolean = true): Promise<'yes' | 'no' | 'cancel'> {
+// Global variable to track if help modal is currently visible
+let isHelpModalVisible = false;
+
+// Function to create a help modal with keyboard shortcuts
+function showHelpModal() {
+    // Don't create another modal if one is already visible
+    if (isHelpModalVisible) {
+        return;
+    }
+    
+    // Set flag that modal is visible
+    isHelpModalVisible = true;
+    
+    // Create modal container
+    const modalContainer = document.createElement('div');
+    modalContainer.id = 'help-modal-container';
+    modalContainer.className = 'modal-container';
+    modalContainer.style.position = 'fixed';
+    modalContainer.style.top = '0';
+    modalContainer.style.left = '0';
+    modalContainer.style.width = '100%';
+    modalContainer.style.height = '100%';
+    modalContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modalContainer.style.display = 'flex';
+    modalContainer.style.justifyContent = 'center';
+    modalContainer.style.alignItems = 'center';
+    modalContainer.style.zIndex = '1000';
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.style.backgroundColor = 'white';
+    modalContent.style.padding = '20px';
+    modalContent.style.borderRadius = '5px';
+    modalContent.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+    modalContent.style.maxWidth = '600px';
+    modalContent.style.maxHeight = '80%';
+    modalContent.style.overflowY = 'auto';
+    
+    // Create header
+    const header = document.createElement('h2');
+    header.textContent = 'Keyboard Shortcuts';
+    header.style.margin = '0 0 15px 0';
+    header.style.borderBottom = '1px solid #eee';
+    header.style.paddingBottom = '10px';
+    
+    // Create shortcut list
+    const shortcutList = document.createElement('div');
+    shortcutList.style.display = 'grid';
+    shortcutList.style.gridTemplateColumns = 'auto 1fr';
+    shortcutList.style.gap = '8px 16px';
+    shortcutList.style.alignItems = 'start';
+    
+    // Define keyboard shortcuts
+    const shortcuts = [
+        { key: 'h', description: 'Show this help modal' },
+        { key: 'x', description: 'Delete selected TextLine or WordBox' },
+        { key: 'e', description: 'Edit selected WordBox' },
+        { key: 'c', description: 'Create child node for selected WordBox' },
+        { key: 'v', description: 'Toggle visibility of TextLines' },
+        { key: 'Tab', description: 'When editing a WordBox, create a new WordBox to the right' },
+        { key: 'Enter', description: 'Finish editing a WordBox' },
+        { key: 'w', description: 'Navigate upward through WordBoxes or circles' },
+        { key: 's', description: 'Navigate downward through WordBoxes or circles' },
+        { key: 'Shift+Drag', description: 'Constrain WordBox movement within page margins and prevent collisions' },
+        { key: 'Ctrl+Z / Cmd+Z', description: 'Undo last action' },
+        { key: 'Ctrl+Shift+Z / Cmd+Shift+Z', description: 'Redo last action' },
+        { key: 'Ctrl+S / Cmd+S', description: 'Save document' }
+    ];
+    
+    // Add shortcuts to the list
+    shortcuts.forEach(shortcut => {
+        const keyElement = document.createElement('div');
+        keyElement.style.fontWeight = 'bold';
+        keyElement.style.backgroundColor = '#f5f5f5';
+        keyElement.style.padding = '3px 8px';
+        keyElement.style.borderRadius = '4px';
+        keyElement.style.fontFamily = 'monospace';
+        keyElement.style.textAlign = 'center';
+        keyElement.textContent = shortcut.key;
+        
+        const descriptionElement = document.createElement('div');
+        descriptionElement.textContent = shortcut.description;
+        
+        shortcutList.appendChild(keyElement);
+        shortcutList.appendChild(descriptionElement);
+    });
+    
+    // Create close button
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Close';
+    closeButton.style.marginTop = '20px';
+    closeButton.style.padding = '8px 16px';
+    closeButton.style.backgroundColor = '#f3f3f3';
+    closeButton.style.border = '1px solid #ddd';
+    closeButton.style.borderRadius = '4px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.display = 'block';
+    closeButton.style.marginLeft = 'auto';
+    
+    // Add close functionality
+    const closeModal = () => {
+        document.body.removeChild(modalContainer);
+        document.removeEventListener('keydown', handleEscKey);
+        // Reset flag when modal is closed
+        isHelpModalVisible = false;
+    };
+    
+    closeButton.addEventListener('click', closeModal);
+    
+    // Close on Escape key
+    const handleEscKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeModal();
+        }
+    };
+    
+    document.addEventListener('keydown', handleEscKey);
+    
+    // Close on outside click
+    modalContainer.addEventListener('click', (e) => {
+        if (e.target === modalContainer) {
+            closeModal();
+        }
+    });
+    
+    // Assemble modal
+    modalContent.appendChild(header);
+    modalContent.appendChild(shortcutList);
+    modalContent.appendChild(closeButton);
+    modalContainer.appendChild(modalContent);
+    
+    // Add to document
+    document.body.appendChild(modalContainer);
+}
+
+function showModal(title: string, message: string, onYes?: (() => void), showNoButton: boolean = true): Promise<'yes' | 'no' | 'cancel'> {
     return new Promise((resolve) => {
         const modalOverlay = document.getElementById('modal-overlay') as HTMLElement;
         const modalTitle = document.getElementById('modal-title') as HTMLElement;
@@ -193,11 +331,14 @@ function showModal(title: string, message: string, showNoButton: boolean = true)
 
 // Initialize event listeners
 function initEventListeners() {
-    // ... existing code ...
-
     // Add event listener for checking unsaved changes before closing
     window.electronAPI.onCheckUnsavedChanges(async () => {
         await handleBeforeClose();
+    });
+    
+    // Add event listener for showing help modal
+    window.electronAPI.onShowHelpModal(() => {
+        showHelpModal();
     });
 }
 
@@ -226,7 +367,7 @@ async function handleBeforeClose() {
             const discardChoice = await showModal(
                 'Discard Changes?',
                 'Are you sure you want to discard unsaved changes and close the application?',
-                false // Only show Yes/Cancel buttons
+                (() => {}), false // Only show Yes/Cancel buttons
             );
             
             if (discardChoice === 'yes') {
@@ -728,126 +869,7 @@ window.addEventListener('load', () => {
         // Show help modal with 'h' key
         if (e.key === 'h') {
             e.preventDefault();
-            
-            // Create modal container
-            const modalContainer = document.createElement('div');
-            modalContainer.className = 'modal-container';
-            modalContainer.style.position = 'fixed';
-            modalContainer.style.top = '0';
-            modalContainer.style.left = '0';
-            modalContainer.style.width = '100%';
-            modalContainer.style.height = '100%';
-            modalContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-            modalContainer.style.display = 'flex';
-            modalContainer.style.justifyContent = 'center';
-            modalContainer.style.alignItems = 'center';
-            modalContainer.style.zIndex = '1000';
-            
-            // Create modal content
-            const modalContent = document.createElement('div');
-            modalContent.className = 'modal-content';
-            modalContent.style.backgroundColor = 'white';
-            modalContent.style.padding = '20px';
-            modalContent.style.borderRadius = '5px';
-            modalContent.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
-            modalContent.style.maxWidth = '600px';
-            modalContent.style.maxHeight = '80%';
-            modalContent.style.overflowY = 'auto';
-            
-            // Create header
-            const header = document.createElement('h2');
-            header.textContent = 'Keyboard Shortcuts';
-            header.style.margin = '0 0 15px 0';
-            header.style.borderBottom = '1px solid #eee';
-            header.style.paddingBottom = '10px';
-            
-            // Create shortcut list
-            const shortcutList = document.createElement('div');
-            shortcutList.style.display = 'grid';
-            shortcutList.style.gridTemplateColumns = 'auto 1fr';
-            shortcutList.style.gap = '8px 16px';
-            shortcutList.style.alignItems = 'start';
-            
-            // Define keyboard shortcuts
-            const shortcuts = [
-                { key: 'h', description: 'Show this help modal' },
-                { key: 'x', description: 'Delete selected TextLine or WordBox' },
-                { key: 'e', description: 'Edit selected WordBox' },
-                { key: 'c', description: 'Create child node for selected WordBox' },
-                { key: 'v', description: 'Toggle visibility of TextLines' },
-                { key: 'Tab', description: 'When editing a WordBox, create a new WordBox to the right' },
-                { key: 'Enter', description: 'Finish editing a WordBox' },
-                { key: 'w', description: 'Navigate upward through WordBoxes or circles' },
-                { key: 's', description: 'Navigate downward through WordBoxes or circles' },
-                { key: 'Shift+Drag', description: 'Constrain WordBox movement within page margins and prevent collisions' },
-                { key: 'Ctrl+Z / Cmd+Z', description: 'Undo last action' },
-                { key: 'Ctrl+Shift+Z / Cmd+Shift+Z', description: 'Redo last action' },
-                { key: 'Ctrl+S / Cmd+S', description: 'Save document' }
-            ];
-            
-            // Add shortcuts to the list
-            shortcuts.forEach(shortcut => {
-                const keyElement = document.createElement('div');
-                keyElement.style.fontWeight = 'bold';
-                keyElement.style.backgroundColor = '#f5f5f5';
-                keyElement.style.padding = '3px 8px';
-                keyElement.style.borderRadius = '4px';
-                keyElement.style.fontFamily = 'monospace';
-                keyElement.style.textAlign = 'center';
-                keyElement.textContent = shortcut.key;
-                
-                const descriptionElement = document.createElement('div');
-                descriptionElement.textContent = shortcut.description;
-                
-                shortcutList.appendChild(keyElement);
-                shortcutList.appendChild(descriptionElement);
-            });
-            
-            // Create close button
-            const closeButton = document.createElement('button');
-            closeButton.textContent = 'Close';
-            closeButton.style.marginTop = '20px';
-            closeButton.style.padding = '8px 16px';
-            closeButton.style.backgroundColor = '#f3f3f3';
-            closeButton.style.border = '1px solid #ddd';
-            closeButton.style.borderRadius = '4px';
-            closeButton.style.cursor = 'pointer';
-            closeButton.style.display = 'block';
-            closeButton.style.marginLeft = 'auto';
-            
-            // Add close functionality
-            const closeModal = () => {
-                document.body.removeChild(modalContainer);
-                document.removeEventListener('keydown', handleEscKey);
-            };
-            
-            closeButton.addEventListener('click', closeModal);
-            
-            // Close on Escape key
-            const handleEscKey = (e: KeyboardEvent) => {
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    closeModal();
-                }
-            };
-            
-            document.addEventListener('keydown', handleEscKey);
-            
-            // Close on outside click
-            modalContainer.addEventListener('click', (e) => {
-                if (e.target === modalContainer) {
-                    closeModal();
-                }
-            });
-            
-            // Assemble modal
-            modalContent.appendChild(header);
-            modalContent.appendChild(shortcutList);
-            modalContent.appendChild(closeButton);
-            modalContainer.appendChild(modalContent);
-            
-            // Add to document
-            document.body.appendChild(modalContainer);
+            showHelpModal();
         }
     });
 
@@ -2829,7 +2851,7 @@ async function newDocument() {
             const discardChoice = await showModal(
                 'Discard Changes?',
                 'Are you sure you want to discard unsaved changes and create a new document?',
-                false // Only show Yes/Cancel buttons
+                (() => {}), false // Only show Yes/Cancel buttons
             );
             
             if (discardChoice !== 'yes') {

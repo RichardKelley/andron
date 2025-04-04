@@ -336,10 +336,10 @@ body {
     box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.3);
 }
 
-/* Snapping feedback style */
+/* Snapping feedback style - disabled */
 .wordbox.near-line {
-    outline: 2px dashed #007AFF;
-    outline-offset: 4px;
+    /* outline: 2px dashed #007AFF;
+    outline-offset: 4px; */
     z-index: 12; /* Above regular selected boxes */
 }
 

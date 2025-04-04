@@ -133,6 +133,18 @@ function createWindow() {
                 { type: 'separator' },
                 { role: 'togglefullscreen' }
             ]
+        },
+        {
+            label: 'Help',
+            submenu: [
+                {
+                    label: 'Keyboard Shortcuts',
+                    accelerator: 'h',
+                    click: () => {
+                        mainWindow.webContents.send('show-help-modal');
+                    }
+                }
+            ]
         }
     ];
 

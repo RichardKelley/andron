@@ -18,6 +18,7 @@ type PreloadElectronAPI = {
     onMenuExportLatex: (callback: () => void) => void;
     onMenuExportLexicon: (callback: () => void) => void;
     onCheckUnsavedChanges: (callback: () => void) => void;
+    onShowHelpModal: (callback: () => void) => void;
     confirmClose: (shouldClose: boolean) => void;
 };
 
@@ -39,5 +40,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onMenuExportLatex: (callback: () => void) => ipcRenderer.on('menu-export-latex', callback),
     onMenuExportLexicon: (callback: () => void) => ipcRenderer.on('menu-export-lexicon', callback),
     onCheckUnsavedChanges: (callback: () => void) => ipcRenderer.on('check-unsaved-changes', callback),
+    onShowHelpModal: (callback: () => void) => ipcRenderer.on('show-help-modal', callback),
     confirmClose: (shouldClose: boolean) => ipcRenderer.send('confirm-close', shouldClose)
 } as PreloadElectronAPI); 
