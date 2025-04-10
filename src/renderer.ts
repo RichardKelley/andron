@@ -971,7 +971,9 @@ window.addEventListener('load', () => {
                                activeElement instanceof HTMLTextAreaElement || 
                                (activeElement && 'isContentEditable' in activeElement && (activeElement as HTMLElement).isContentEditable);
         
-        if (e.key === 'h' && !isInputFocused && !isEditingWordBox() && document.activeElement === document.body) {
+        if (e.key === 'h' && !isInputFocused && !isEditingWordBox() && 
+            (document.activeElement === document.body || 
+             document.activeElement?.closest('.canvas-container') !== null)) {
             e.preventDefault();
             showHelpModal();
         }
