@@ -124,7 +124,7 @@ export class LexicalEntry {
 }
 
 export class Lexicon {
-    private static instance: Lexicon;
+    static instance: Lexicon; // Changed from private to allow direct access for rebuilding
     private entries: Map<string, LexicalEntry>;
     private name: string;
     private static secondaryLexicons: Lexicon[] = [];

@@ -2003,14 +2003,23 @@ function initLexiconManagement() {
     const primaryLexiconItem = document.querySelector('.primary-lexicon .lexicon-name');
     
     // First, ensure we have a clean state without any duplicate elements
-    // Remove any existing import button and file input
+    // Remove any existing buttons and file input
     const existingImportButtons = document.querySelectorAll('#import-lexicon-btn');
     existingImportButtons.forEach(btn => btn.remove());
+    
+    const existingRebuildButtons = document.querySelectorAll('#rebuild-lexicon-btn');
+    existingRebuildButtons.forEach(btn => btn.remove());
     
     const existingFileInputs = document.querySelectorAll('#lexicon-file-input');
     existingFileInputs.forEach(input => input.remove());
     
-    // Create new import button and file input element
+    // Create rebuild lexicon button
+    const rebuildLexiconBtn = document.createElement('button');
+    rebuildLexiconBtn.id = 'rebuild-lexicon-btn';
+    rebuildLexiconBtn.className = 'sidebar-button';
+    rebuildLexiconBtn.textContent = 'Rebuild Lexicon';
+    
+    // Create import button and file input element
     const importLexiconBtn = document.createElement('button');
     importLexiconBtn.id = 'import-lexicon-btn';
     importLexiconBtn.className = 'sidebar-button';
@@ -2024,6 +2033,7 @@ function initLexiconManagement() {
     
     // Add them to the lexicon list div
     if (lexiconListDiv) {
+        lexiconListDiv.appendChild(rebuildLexiconBtn);
         lexiconListDiv.appendChild(importLexiconBtn);
         lexiconListDiv.appendChild(lexiconFileInput);
     }
@@ -2102,6 +2112,111 @@ function initLexiconManagement() {
     
     // Update the lexicon list on initialization
     updateLexiconList();
+    
+    // Rebuild lexicon button
+    rebuildLexiconBtn.addEventListener('click', () => {
+        // Confirm with the user before proceeding
+        const confirmed = confirm('This will clear the current document lexicon and rebuild it from all WordBoxes in the document. Continue?');
+        if (!confirmed) return;
+        
+        console.log('Rebuilding lexicon from scratch...');
+        
+        // Create a new empty lexicon
+        const newLexicon = new Lexicon('Primary Lexicon');
+        
+        // Count stats for summary
+        let totalBoxesProcessed = 0;
+        let skippedSpecialBoxes = 0;
+        let entriesAdded = 0;
+        let translationsAdded = 0;
+        
+        // Scan all WordBoxes in the document
+        WordBox.instances.forEach((box) => {
+            totalBoxesProcessed++;
+            
+            // Skip special box types
+            if (box.getIsChapter() || box.getIsSection() || box.getIsHeadline()) {
+                skippedSpecialBoxes++;
+                return;
+            }
+            
+            // Get the box text
+            const element = box.getElement();
+            const textElement = element.querySelector('.wordbox-rect');
+            if (!textElement) return;
+            
+            const text = textElement.textContent;
+            if (!text || text === 'New Word' || !text.trim()) return;
+            
+            // Get page number
+            const pageContainer = element.closest('.canvas-container') as HTMLElement;
+            const pageNumber = pageContainer ? parseInt(pageContainer.dataset.pageNumber || '1') : 1;
+            
+            // If this is a parent box
+            if (!box.getParentId()) {
+                // Add to lexicon with page number
+                newLexicon.addEntry(text, undefined, pageNumber);
+                entriesAdded++;
+                
+                // Check for child boxes and their translations
+                const childBoxIdBottom = box.getChildBoxIdBottom();
+                const childBoxIdTop = box.getChildBoxIdTop();
+                
+                // Process bottom child
+                if (childBoxIdBottom) {
+                    const childBox = WordBox.fromElement(document.getElementById(childBoxIdBottom));
+                    if (childBox) {
+                        const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent;
+                        if (childText && childText !== 'New Word' && childText.trim()) {
+                            newLexicon.addEntry(text, childText);
+                            translationsAdded++;
+                        }
+                    }
+                }
+                
+                // Process top child
+                if (childBoxIdTop) {
+                    const childBox = WordBox.fromElement(document.getElementById(childBoxIdTop));
+                    if (childBox) {
+                        const childText = childBox.getElement().querySelector('.wordbox-rect')?.textContent;
+                        if (childText && childText !== 'New Word' && childText.trim()) {
+                            newLexicon.addEntry(text, childText);
+                            translationsAdded++;
+                        }
+                    }
+                }
+            }
+            // If this is a child box
+            else {
+                // Get the parent box's text
+                const parentBox = WordBox.fromElement(document.getElementById(box.getParentId() as string));
+                if (parentBox) {
+                    // Skip if the parent is a special box type
+                    if (parentBox.getIsChapter() || parentBox.getIsSection() || parentBox.getIsHeadline()) {
+                        return;
+                    }
+                    
+                    const parentText = parentBox.getElement().querySelector('.wordbox-rect')?.textContent;
+                    if (parentText && parentText !== 'New Word' && parentText.trim()) {
+                        newLexicon.addEntry(parentText, text);
+                        translationsAdded++;
+                    }
+                }
+            }
+        });
+        
+        // Replace the current lexicon with the new one
+        Lexicon.instance = newLexicon;
+        
+        // Update the UI to reflect changes
+        updateLexiconList();
+        
+        console.log(`Lexicon rebuilt: ${entriesAdded} entries with ${translationsAdded} translations`);
+        console.log(`Processed ${totalBoxesProcessed} boxes, skipped ${skippedSpecialBoxes} special boxes`);
+        
+        // Show confirmation to user
+        alert(`Lexicon rebuilt successfully with ${entriesAdded} entries and ${translationsAdded} translations.`);
+    });
     
     // Import lexicon button
     importLexiconBtn.addEventListener('click', () => {
