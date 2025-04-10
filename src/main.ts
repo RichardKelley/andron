@@ -139,7 +139,8 @@ function createWindow() {
             submenu: [
                 {
                     label: 'Keyboard Shortcuts',
-                    accelerator: 'h',
+                    // Remove the accelerator from the menu to prevent highlighting
+                    // We'll handle the 'h' key in the renderer process
                     click: () => {
                         mainWindow.webContents.send('show-help-modal');
                     }

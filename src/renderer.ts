@@ -128,7 +128,9 @@ let isHelpModalVisible = false;
 function isEditingWordBox() {
     // Check if the active element is an input or textarea
     const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+    if (activeElement instanceof HTMLInputElement || 
+        activeElement instanceof HTMLTextAreaElement || 
+        (activeElement && 'isContentEditable' in activeElement && (activeElement as HTMLElement).isContentEditable)) {
         // If it's inside a wordbox, we're editing a WordBox
         return !!activeElement.closest('.wordbox-rect');
     }
@@ -142,8 +144,17 @@ function showHelpModal() {
         return;
     }
     
-    // Don't show help modal if currently editing a WordBox
+    // Don't show help modal if currently editing a WordBox or any text input
     if (isEditingWordBox()) {
+        return;
+    }
+    
+    // Check if any input element has focus
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLInputElement || 
+        activeElement instanceof HTMLTextAreaElement || 
+        (activeElement && 'isContentEditable' in activeElement && (activeElement as HTMLElement).isContentEditable)) {
+        console.log('Help modal suppressed: text input element has focus');
         return;
     }
     
@@ -354,6 +365,14 @@ function initEventListeners() {
     
     // Add event listener for showing help modal
     window.electronAPI.onShowHelpModal(() => {
+        // Check if the active element is a text input or textarea before showing help modal
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLInputElement || 
+            activeElement instanceof HTMLTextAreaElement ||
+            (activeElement && 'isContentEditable' in activeElement && (activeElement as HTMLElement).isContentEditable)) {
+            console.log('Help modal suppressed: text input element has focus');
+            return;
+        }
         showHelpModal();
     });
     
@@ -946,8 +965,13 @@ window.addEventListener('load', () => {
             }
         }
         
-        // Show help modal with 'h' key, but only if not editing a WordBox
-        if (e.key === 'h' && !isEditingWordBox() && document.activeElement === document.body) {
+        // Show help modal with 'h' key, but only if not editing a WordBox or any input
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement instanceof HTMLInputElement || 
+                               activeElement instanceof HTMLTextAreaElement || 
+                               (activeElement && 'isContentEditable' in activeElement && (activeElement as HTMLElement).isContentEditable);
+        
+        if (e.key === 'h' && !isInputFocused && !isEditingWordBox() && document.activeElement === document.body) {
             e.preventDefault();
             showHelpModal();
         }
