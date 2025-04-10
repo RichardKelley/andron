@@ -69,7 +69,7 @@ export class TextLine {
     }
 
     // Continue dragging the line
-    drag(clientY: number, canvas: HTMLCanvasElement): void {
+    drag(clientY: number, canvas: HTMLCanvasElement, shiftKey: boolean = false): void {
         if (!this.isDragging) return;
 
         const rect = canvas.getBoundingClientRect();
@@ -83,9 +83,121 @@ export class TextLine {
         const margins = this.canvasManager.getGlobalMargins();
         if (newY >= margins.top + CAP_HEIGHT && 
             newY + DESCENDER_HEIGHT <= margins.bottom) {
+            
+            // If shift key is pressed, check for collisions
+            if (shiftKey && this.checkCollisionWithWordBoxes(newY, canvas)) {
+                // Collision detected, don't update position
+                return;
+            }
+            
             this.setYPosition(newY);
             this.dragStartY = clientY;
         }
+    }
+    
+    // Check if the line at the given y position would collide with any WordBoxes or circles
+    private checkCollisionWithWordBoxes(newY: number, canvas: HTMLCanvasElement): boolean {
+        // Get the page container
+        const pageContainer = canvas.closest('.canvas-container');
+        if (!pageContainer) return false;
+        
+        // Get all WordBoxes on this page
+        const allWordBoxes = Array.from(pageContainer.querySelectorAll('[id^="wordbox-"]'));
+        
+        // Get WordBoxes that are not part of this line
+        const lineWordBoxIds = this.wordBoxes.map(box => box.getId());
+        const externalWordBoxes = allWordBoxes.filter(el => !lineWordBoxIds.includes(el.id));
+        
+        // Get the margins to determine the line's horizontal span
+        const margins = this.canvasManager.getGlobalMargins();
+        const lineLeft = margins.left - PAGE_MARGIN;
+        const lineRight = margins.right - PAGE_MARGIN;
+        
+        // Calculate the line's vertical span (baseline ± collision buffer)
+        // Use no buffer for precise collision detection of line against boxes
+        const collisionBuffer = 0; // No buffer zone to ensure exact collision
+        const lineTop = newY - CAP_HEIGHT;
+        const lineBottom = newY + DESCENDER_HEIGHT;
+        
+        // Hold line bounding box for later use with circles
+        const lineBbox = {
+            left: lineLeft,
+            right: lineRight,
+            top: lineTop,
+            bottom: lineBottom
+        };
+        
+        // Check each WordBox to see if it would intersect with the line
+        for (const boxEl of externalWordBoxes) {
+            const box = WordBox.fromElement(boxEl as HTMLElement);
+            if (!box) continue;
+            
+            // Get the box's bounding rectangle
+            const boxRect = boxEl.getBoundingClientRect();
+            const rect = canvas.getBoundingClientRect();
+            const scaleY = canvas.height / rect.height;
+            
+            // Convert to canvas coordinates
+            const boxTop = (boxRect.top - rect.top) * scaleY;
+            const boxBottom = (boxRect.bottom - rect.top) * scaleY;
+            const boxLeft = (boxRect.left - rect.left) * scaleY;
+            const boxRight = (boxRect.right - rect.left) * scaleY;
+            
+            // Check for collision between line and box
+            const collision = !(
+                lineRight < boxLeft ||
+                lineLeft > boxRight ||
+                lineBottom < boxTop ||
+                lineTop > boxBottom
+            );
+            
+            if (collision) {
+                console.log(`Line ${this.getId()} would collide with WordBox ${box.getId()}`);
+                return true;
+            }
+            
+            // For each WordBox, also check its circles against this line
+            const circles = Array.from(boxEl.querySelectorAll('.wordbox-circle-top, .wordbox-circle-bottom'));
+            for (const circleEl of circles) {
+                // Get the circle's bounding rectangle
+                const circleRect = circleEl.getBoundingClientRect();
+                
+                // Calculate the circle's center and radius
+                const circleWidth = circleRect.width;
+                const circleHeight = circleRect.height;
+                
+                // Convert to canvas coordinates
+                const circleCenterX = ((circleRect.left + circleRect.right) / 2 - rect.left) * scaleY;
+                const circleCenterY = ((circleRect.top + circleRect.bottom) / 2 - rect.top) * scaleY;
+                
+                // Circle radius in canvas coordinates (using the smaller of width/height)
+                // Reduce the effective radius slightly to make collision detection more precise
+                const circleRadius = (Math.min(circleWidth, circleHeight) / 2 - 2) * scaleY;
+                
+                // Get the closest point on the line to the circle's center
+                // For horizontal lines, this is just the X coord of the circle's center, constrained to line segment
+                const closestX = Math.max(lineBbox.left, Math.min(lineBbox.right, circleCenterX));
+                
+                // Check if the circle's center Y is above or below the line
+                const lineY = circleCenterY <= newY ? lineBbox.top : lineBbox.bottom;
+                
+                // Calculate distance between circle center and closest point on line
+                const distanceX = closestX - circleCenterX;
+                const distanceY = lineY - circleCenterY;
+                const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+                
+                // There's a collision if the distance is less than or equal to the circle's radius
+                const circleCollision = distance <= circleRadius;
+                
+                if (circleCollision) {
+                    console.log(`Line ${this.getId()} would collide with a circle from WordBox ${box.getId()}`);
+                    console.log(`  Distance: ${distance}, Circle radius: ${circleRadius}`);
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 
     // Stop dragging the line

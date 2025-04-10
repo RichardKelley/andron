@@ -212,7 +212,7 @@ function showHelpModal() {
         { key: 'Enter', description: 'Finish editing a WordBox' },
         { key: 'w', description: 'Navigate upward through WordBoxes or circles' },
         { key: 's', description: 'Navigate downward through WordBoxes or circles' },
-        { key: 'Shift+Drag', description: 'Constrain WordBox movement within page margins and prevent collisions' },
+        { key: 'Shift+Drag', description: 'Constrain WordBox and TextLine movement within margins and prevent collisions' },
         { key: 'Ctrl+Z / Cmd+Z', description: 'Undo last action' },
         { key: 'Ctrl+Shift+Z / Cmd+Shift+Z', description: 'Redo last action' },
         { key: 'Ctrl+S / Cmd+S', description: 'Save document' }
@@ -2591,6 +2591,10 @@ async function loadDocument() {
             // Reset WordBox instances and history
             WordBox.instances.clear();
             historyManager.clearHistory();
+            
+            // Reset the textLines map - IMPORTANT: fixes issue with TextLines persisting
+            textLines.clear();
+            canvasManager.clearTextLines();
 
             // Load lexicon data if available
             if (documentState.lexicon) {

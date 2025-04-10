@@ -619,7 +619,8 @@ export class CanvasManager {
             if (activeDragLine) {
                 const canvas = document.querySelector(`.canvas-container[data-page-number="${activeDragLine.getPageNumber()}"] canvas`) as HTMLCanvasElement;
                 if (canvas) {
-                    activeDragLine.drag(e.clientY, canvas);
+                    // Pass the shift key state for collision detection
+                    activeDragLine.drag(e.clientY, canvas, e.shiftKey);
                 }
             }
         });
