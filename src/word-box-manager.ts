@@ -668,8 +668,12 @@ export class WordBoxManager {
             // Get the word box being edited
             const editedBox = WordBox.fromElement(wordBoxEl);
             if (editedBox) {
-                // Update lexicon with the new text
-                editedBox.updateLexicon(newText, oldText);
+                // Update lexicon with the new text, but only if not a Chapter, Section, or Headline box
+                if (!editedBox.getIsChapter() && !editedBox.getIsSection() && !editedBox.getIsHeadline()) {
+                    editedBox.updateLexicon(newText, oldText);
+                } else {
+                    console.log(`Skipping lexicon update for ${editedBox.getIsChapter() ? 'Chapter' : editedBox.getIsSection() ? 'Section' : 'Headline'} box text: "${newText}"`);
+                }
 
                 // Record edit operation if text changed
                 if (newText !== oldText && this.historyManager && !this.isEditOperationAdded) {

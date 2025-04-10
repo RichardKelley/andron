@@ -336,6 +336,15 @@ export class WordBox {
             return;
         }
 
+        // Check if the box has a parent that's a special box type
+        if (this.parentId) {
+            const parentBox = WordBox.fromElement(document.getElementById(this.parentId));
+            if (parentBox && (parentBox.getIsChapter() || parentBox.getIsSection() || parentBox.getIsHeadline())) {
+                console.log(`Skipping lexicon update for child of ${parentBox.getIsChapter() ? 'Chapter' : parentBox.getIsSection() ? 'Section' : 'Headline'} box: "${newText}"`);
+                return;
+            }
+        }
+
         const lexicon = Lexicon.getInstance();
         const pageContainer = this.element.closest('.canvas-container') as HTMLElement;
         if (!pageContainer) return;
