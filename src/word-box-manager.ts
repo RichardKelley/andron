@@ -62,6 +62,9 @@ export class WordBoxManager {
         rectContainer.dataset.originalText = originalText;
         this.isEditOperationAdded = false;
         
+        // Add 'editing' class to the WordBox element
+        wordBoxEl.classList.add('editing');
+        
         const input = document.createElement('input');
         input.type = 'text';
         input.value = rectContainer.textContent || '';
@@ -72,6 +75,27 @@ export class WordBoxManager {
         input.style.background = 'white';
         input.style.outline = 'none';
         input.style.font = window.getComputedStyle(rectContainer).font;
+        input.classList.add('wordbox-editing-input');
+        
+        // Add a data attribute to identify it as an editing input
+        input.dataset.editing = 'true';
+        
+        // Add special handler to prevent document-level keyboard shortcuts
+        input.addEventListener('keydown', (e) => {
+            // Stop ALL keyboard events from bubbling up to document level
+            e.stopPropagation();
+            
+            // Don't let h key trigger accelerator menu items
+            if (e.key === 'h') {
+                e.preventDefault(); // Prevent default only at this level
+                // Allow normal text input by setting the value programmatically
+                setTimeout(() => {
+                    input.value += 'h';
+                    // Manually trigger the input event
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }, 0);
+            }
+        });
 
         // Function to update input width based on content
         const updateWidth = () => {
@@ -632,6 +656,9 @@ export class WordBoxManager {
             const newText = input.value.trim();
             const oldText = originalText;
             rectContainer.textContent = newText;
+            
+            // Remove 'editing' class from the WordBox element
+            wordBoxEl.classList.remove('editing');
             
             // Only remove measureSpan if it's still in the document
             if (measureSpan.parentNode) {

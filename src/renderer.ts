@@ -124,10 +124,26 @@ function adjustTextAreaHeight(element: HTMLTextAreaElement) {
 // Global variable to track if help modal is currently visible
 let isHelpModalVisible = false;
 
+// Check if currently editing a WordBox
+function isEditingWordBox() {
+    // Check if the active element is an input or textarea
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+        // If it's inside a wordbox, we're editing a WordBox
+        return !!activeElement.closest('.wordbox-rect');
+    }
+    return false;
+}
+
 // Function to create a help modal with keyboard shortcuts
 function showHelpModal() {
     // Don't create another modal if one is already visible
     if (isHelpModalVisible) {
+        return;
+    }
+    
+    // Don't show help modal if currently editing a WordBox
+    if (isEditingWordBox()) {
         return;
     }
     
@@ -791,8 +807,9 @@ window.addEventListener('load', () => {
 
     // Add keydown handler for line visibility toggle
     document.addEventListener('keydown', (e: KeyboardEvent) => {
-        // Check if we're in an input field
+        // Check if we're in an input field or editing a WordBox
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+            // Don't process any keyboard shortcuts when editing text
             return;
         }
 
@@ -866,8 +883,8 @@ window.addEventListener('load', () => {
             }
         }
         
-        // Show help modal with 'h' key
-        if (e.key === 'h') {
+        // Show help modal with 'h' key, but only if not editing a WordBox
+        if (e.key === 'h' && !isEditingWordBox() && document.activeElement === document.body) {
             e.preventDefault();
             showHelpModal();
         }
