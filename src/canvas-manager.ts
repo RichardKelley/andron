@@ -22,6 +22,11 @@ export class CanvasManager {
     private pageObserver: IntersectionObserver | null;
     private onMarginsUpdated: (() => void) | null = null;
     private historyManager: HistoryManager | null = null;
+    
+    // Method to clear all text lines
+    public clearTextLines(): void {
+        this.textLines.clear();
+    }
 
     constructor() {
         this.currentDPI = DPI;

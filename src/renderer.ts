@@ -356,6 +356,11 @@ function initEventListeners() {
     window.electronAPI.onShowHelpModal(() => {
         showHelpModal();
     });
+    
+    // Add event listener for new document
+    window.electronAPI.onMenuNew(() => {
+        createNewDocument();
+    });
 }
 
 // Function to handle the application close event
@@ -401,6 +406,64 @@ async function handleBeforeClose() {
         // No unsaved changes, close the application
         window.electronAPI.confirmClose(true);
     }
+}
+
+// Function to create a new document
+function createNewDocument() {
+    console.log('Creating new document...');
+    
+    // Clear existing content
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+        mainContent.innerHTML = '';
+    }
+    
+    // Reset document name and modified state
+    currentDocumentName = null;
+    isDocumentModified = false;
+    document.title = `📜 Andron`;
+    
+    // Reset WordBox instances
+    WordBox.instances.clear();
+    
+    // Reset the textLines map - IMPORTANT: fixes issue with TextLines persisting
+    textLines.clear();
+    canvasManager.clearTextLines();
+    
+    // Reset history
+    historyManager.clearHistory();
+    
+    // Create a new page
+    const { canvas, wrapper } = canvasManager.createPage();
+    
+    // Make the canvas container focusable
+    wrapper.setAttribute('tabindex', '-1');
+    wrapper.style.outline = 'none'; // Hide the focus outline
+    
+    // Reset document info fields
+    const documentTitle = document.getElementById('document-title') as HTMLTextAreaElement;
+    const documentAuthor = document.getElementById('document-author') as HTMLTextAreaElement;
+    const documentTranslator = document.getElementById('document-translator') as HTMLTextAreaElement;
+    const documentNotes = document.getElementById('document-notes') as HTMLTextAreaElement;
+    
+    if (documentTitle) {
+        documentTitle.value = '';
+        adjustTextAreaHeight(documentTitle);
+    }
+    if (documentAuthor) {
+        documentAuthor.value = '';
+        adjustTextAreaHeight(documentAuthor);
+    }
+    if (documentTranslator) {
+        documentTranslator.value = '';
+        adjustTextAreaHeight(documentTranslator);
+    }
+    if (documentNotes) {
+        documentNotes.value = '';
+        adjustTextAreaHeight(documentNotes);
+    }
+    
+    console.log('New document created successfully');
 }
 
 // Single load event listener that handles everything
